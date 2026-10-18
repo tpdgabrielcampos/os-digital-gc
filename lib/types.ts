@@ -29,7 +29,8 @@ export const STATUS_COLOR: Record<StatusPedido, string> = {
 
 export const TIPOS_TRABALHO = [
   "Enceramento diagnóstico",
-  "Coroa/faceta",
+  "Coroa/faceta Dissilicato",
+  "Coroa/faceta Zircônia",
   "Provisório",
   "Protocolo Cerâmico",
   "Protocolo Provisório",
