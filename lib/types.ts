@@ -31,6 +31,8 @@ export const TIPOS_TRABALHO = [
   "Enceramento diagnóstico",
   "Coroa/faceta Dissilicato",
   "Coroa/faceta Zircônia",
+  "Coroa/faceta Resina",
+  "Coroa/faceta Provisória",
   "Provisório",
   "Protocolo Cerâmico",
   "Protocolo Provisório",
