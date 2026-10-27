@@ -40,6 +40,7 @@ export const TIPOS_TRABALHO = [
   "Placa Miorelaxante",
   "Guia Cirúrgico",
   "Impressão de modelo para placa de clareamento",
+  "Retrabalho",
 ];
 
 export interface PedidoFoto {
