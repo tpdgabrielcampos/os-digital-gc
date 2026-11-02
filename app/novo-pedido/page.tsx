@@ -12,13 +12,13 @@ type EstadoEnvio = "idle" | "enviando" | "sucesso" | "erro";
 // odontograma o trabalho de cada dente; dentes com o mesmo trabalho viram um
 // serviço só (uma linha em "pedidos", com status, prazo e cartão do Trello
 // próprios). Todas as linhas da mesma OS compartilham o mesmo "os_id".
+// A cor final e o prazo valem para o caso inteiro (todos os serviços da OS);
+// só o "É retrabalho" é marcado serviço por serviço.
 interface Detalhe {
-  cor: string;
-  prazo: string;
   retrabalho: boolean;
 }
 
-const DETALHE_VAZIO: Detalhe = { cor: "", prazo: "", retrabalho: false };
+const DETALHE_VAZIO: Detalhe = { retrabalho: false };
 
 const ORDEM_DENTES = [
   "18", "17", "16", "15", "14", "13", "12", "11",
@@ -59,7 +59,12 @@ export default function NovoPedidoPage() {
   const [fotos, setFotos] = useState<File[]>([]);
   const [marcacoes, setMarcacoes] = useState<Marcacoes>({});
   const [detalhes, setDetalhes] = useState<Record<string, Detalhe>>({});
+  const [corCaso, setCorCaso] = useState("");
+  const [prazoCaso, setPrazoCaso] = useState("");
   const grupos = agruparMarcacoes(marcacoes);
+  // A cor do caso vale para PSI/PSD/Ajuste de cor (e o pôntico segue ela).
+  const usaCor = (c: string[]) => pedeCor(c) || ehPontico(c);
+  const casoPedeCor = grupos.some((g) => usaCor(g.caminho));
 
   function detalheDe(chave: string): Detalhe {
     return detalhes[chave] ?? DETALHE_VAZIO;
@@ -92,10 +97,8 @@ export default function NovoPedidoPage() {
     if (grupos.length === 0) {
       faltando.push("Trabalho — clique num dente do odontograma e escolha o trabalho");
     }
-    for (const g of grupos) {
-      if (pedeCor(g.caminho) && !detalheDe(g.chave).cor.trim()) {
-        faltando.push(`Cor final (${g.chave})`);
-      }
+    if (casoPedeCor && !corCaso.trim()) {
+      faltando.push("Cor final do caso");
     }
 
     if (faltando.length > 0) {
@@ -119,11 +122,6 @@ export default function NovoPedidoPage() {
         plataforma_envio: (data.get("plataforma_envio") as string) || null,
         observacoes: (data.get("observacoes") as string) || null,
       };
-      // O pôntico não tem cor própria: segue a cor final dos demais trabalhos do caso.
-      const corDoCaso =
-        Array.from(
-          new Set(grupos.filter((g) => pedeCor(g.caminho)).map((g) => detalheDe(g.chave).cor.trim()).filter(Boolean))
-        ).join(" / ") || null;
       const linhas = grupos.map((g) => {
         const d = detalheDe(g.chave);
         return {
@@ -132,8 +130,8 @@ export default function NovoPedidoPage() {
           tipo_trabalho: g.chave + (d.retrabalho ? " (Retrabalho)" : ""),
           dentes: g.dentes,
           material: materialDoCaminho(g.caminho),
-          cor_restauracao: ehPontico(g.caminho) ? corDoCaso : d.cor.trim() || null,
-          prazo_desejado: d.prazo || null,
+          cor_restauracao: usaCor(g.caminho) ? corCaso.trim() || null : null,
+          prazo_desejado: prazoCaso || null,
         };
       });
       const pedidoIds = linhas.map((l) => l.id);
@@ -181,6 +179,8 @@ export default function NovoPedidoPage() {
       form.reset();
       setMarcacoes({});
       setDetalhes({});
+      setCorCaso("");
+      setPrazoCaso("");
       setFotos([]);
     } catch (err) {
       console.error(err);
@@ -301,28 +301,6 @@ export default function NovoPedidoPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          {pedeCor(g.caminho) && (
-                            <CampoControlado
-                              label="Cor final"
-                              required
-                              placeholder="Ex: A2, A3.5, BL2..."
-                              value={d.cor}
-                              onChange={(v) => atualizarDetalhe(g.chave, { cor: v })}
-                            />
-                          )}
-                          {ehPontico(g.caminho) && (
-                            <p className="self-end pb-2 text-xs text-slate-500">
-                              Cor: segue a cor final do restante do caso.
-                            </p>
-                          )}
-                          <CampoControlado
-                            label="Prazo desejado"
-                            type="date"
-                            value={d.prazo}
-                            onChange={(v) => atualizarDetalhe(g.chave, { prazo: v })}
-                          />
-                        </div>
                         <label className="mt-3 flex items-center gap-2 text-sm text-slate-700">
                           <input
                             type="checkbox"
@@ -334,6 +312,26 @@ export default function NovoPedidoPage() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {grupos.length > 0 && (
+                <div className="grid gap-3 rounded-lg bg-slate-50 p-3 sm:grid-cols-2">
+                  {casoPedeCor && (
+                    <CampoControlado
+                      label="Cor final do caso"
+                      required
+                      placeholder="Ex: A2, A3.5, BL2..."
+                      value={corCaso}
+                      onChange={setCorCaso}
+                    />
+                  )}
+                  <CampoControlado
+                    label="Prazo desejado"
+                    type="date"
+                    value={prazoCaso}
+                    onChange={setPrazoCaso}
+                  />
                 </div>
               )}
             </fieldset>
