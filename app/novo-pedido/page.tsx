@@ -2,32 +2,56 @@
 
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseClient";
-import { PLATAFORMAS_ENVIO, TIPOS_TRABALHO } from "@/lib/types";
-import OdontogramaSelector from "@/components/OdontogramaSelector";
+import { PLATAFORMAS_ENVIO } from "@/lib/types";
+import { SEPARADOR, ehPontico, materialDoCaminho, pedeCor } from "@/lib/catalogo";
+import OdontogramaTrabalhos, { COR_CATEGORIA, Marcacoes } from "@/components/OdontogramaTrabalhos";
 
 type EstadoEnvio = "idle" | "enviando" | "sucesso" | "erro";
 
-// Cada ordem de serviço (OS) pode ter vários serviços. No banco, cada serviço
-// vira uma linha própria em "pedidos" (com status, prazo e cartão do Trello
-// próprios), e todas as linhas da mesma OS compartilham o mesmo "os_id".
-interface Servico {
-  chave: string;
-  tipoTrabalho: string;
-  dentes: string[];
-  material: string;
+// Cada ordem de serviço (OS) pode ter vários serviços. O dentista marca no
+// odontograma o trabalho de cada dente; dentes com o mesmo trabalho viram um
+// serviço só (uma linha em "pedidos", com status, prazo e cartão do Trello
+// próprios). Todas as linhas da mesma OS compartilham o mesmo "os_id".
+interface Detalhe {
   cor: string;
   prazo: string;
+  retrabalho: boolean;
+  motivoRetrabalho: string;
 }
 
-function novoServico(): Servico {
-  return {
-    chave: crypto.randomUUID(),
-    tipoTrabalho: TIPOS_TRABALHO[0],
-    dentes: [],
-    material: "",
-    cor: "",
-    prazo: "",
-  };
+const DETALHE_VAZIO: Detalhe = { cor: "", prazo: "", retrabalho: false, motivoRetrabalho: "" };
+
+const MOTIVOS_RETRABALHO = [
+  "Mudança de planejamento/repreparo",
+  "Reescaneamento de pilar",
+  "Ajuste de cor",
+];
+
+const ORDEM_DENTES = [
+  "18", "17", "16", "15", "14", "13", "12", "11",
+  "21", "22", "23", "24", "25", "26", "27", "28",
+  "48", "47", "46", "45", "44", "43", "42", "41",
+  "31", "32", "33", "34", "35", "36", "37", "38",
+];
+
+interface Grupo {
+  chave: string;
+  caminho: string[];
+  dentes: string[];
+}
+
+/** Junta os dentes que receberam o mesmo trabalho. */
+function agruparMarcacoes(marcacoes: Marcacoes): Grupo[] {
+  const grupos: Grupo[] = [];
+  for (const dente of ORDEM_DENTES) {
+    const caminho = marcacoes[dente];
+    if (!caminho) continue;
+    const chave = caminho.join(SEPARADOR);
+    const g = grupos.find((x) => x.chave === chave);
+    if (g) g.dentes.push(dente);
+    else grupos.push({ chave, caminho, dentes: [dente] });
+  }
+  return grupos;
 }
 
 const FUNDO_PAGINA =
@@ -40,14 +64,16 @@ export default function NovoPedidoPage() {
   const [estado, setEstado] = useState<EstadoEnvio>("idle");
   const [erro, setErro] = useState<string | null>(null);
   const [fotos, setFotos] = useState<File[]>([]);
-  const [servicos, setServicos] = useState<Servico[]>(() => [novoServico()]);
+  const [marcacoes, setMarcacoes] = useState<Marcacoes>({});
+  const [detalhes, setDetalhes] = useState<Record<string, Detalhe>>({});
+  const grupos = agruparMarcacoes(marcacoes);
 
-  function atualizarServico(chave: string, campos: Partial<Servico>) {
-    setServicos((lista) => lista.map((s) => (s.chave === chave ? { ...s, ...campos } : s)));
+  function detalheDe(chave: string): Detalhe {
+    return detalhes[chave] ?? DETALHE_VAZIO;
   }
 
-  function removerServico(chave: string) {
-    setServicos((lista) => (lista.length > 1 ? lista.filter((s) => s.chave !== chave) : lista));
+  function atualizarDetalhe(chave: string, campos: Partial<Detalhe>) {
+    setDetalhes((d) => ({ ...d, [chave]: { ...(d[chave] ?? DETALHE_VAZIO), ...campos } }));
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -70,14 +96,17 @@ export default function NovoPedidoPage() {
       .filter(([nomeCampo]) => !String(data.get(nomeCampo) ?? "").trim())
       .map(([, label]) => label);
 
-    servicos.forEach((s, i) => {
-      const rotulo = servicos.length > 1 ? ` (serviço ${i + 1})` : "";
-      if (s.dentes.length === 0) {
-        faltando.push(`Dentes envolvidos${rotulo} — marque pelo menos um dente no odontograma`);
+    if (grupos.length === 0) {
+      faltando.push("Trabalho — clique num dente do odontograma e escolha o trabalho");
+    }
+    for (const g of grupos) {
+      if (pedeCor(g.caminho) && !detalheDe(g.chave).cor.trim()) {
+        faltando.push(`Cor final (${g.chave})`);
       }
-      if (!s.material.trim()) faltando.push(`Material desejado${rotulo}`);
-      if (!s.cor.trim()) faltando.push(`Cor final da restauração${rotulo}`);
-    });
+      if (detalheDe(g.chave).retrabalho && !detalheDe(g.chave).motivoRetrabalho) {
+        faltando.push(`Motivo do retrabalho (${g.chave})`);
+      }
+    }
 
     if (faltando.length > 0) {
       setErro(`Preencha os campos obrigatórios antes de enviar: ${faltando.join(", ")}.`);
@@ -100,15 +129,23 @@ export default function NovoPedidoPage() {
         plataforma_envio: (data.get("plataforma_envio") as string) || null,
         observacoes: (data.get("observacoes") as string) || null,
       };
-      const linhas = servicos.map((s) => ({
-        ...comum,
-        id: crypto.randomUUID(),
-        tipo_trabalho: s.tipoTrabalho,
-        dentes: s.dentes,
-        material: s.material.trim() || null,
-        cor_restauracao: s.cor.trim() || null,
-        prazo_desejado: s.prazo || null,
-      }));
+      // O pôntico não tem cor própria: segue a cor final dos demais trabalhos do caso.
+      const corDoCaso =
+        Array.from(
+          new Set(grupos.filter((g) => pedeCor(g.caminho)).map((g) => detalheDe(g.chave).cor.trim()).filter(Boolean))
+        ).join(" / ") || null;
+      const linhas = grupos.map((g) => {
+        const d = detalheDe(g.chave);
+        return {
+          ...comum,
+          id: crypto.randomUUID(),
+          tipo_trabalho: g.chave + (d.retrabalho ? ` (Retrabalho: ${d.motivoRetrabalho})` : ""),
+          dentes: g.dentes,
+          material: materialDoCaminho(g.caminho),
+          cor_restauracao: ehPontico(g.caminho) ? corDoCaso : d.cor.trim() || null,
+          prazo_desejado: d.prazo || null,
+        };
+      });
       const pedidoIds = linhas.map((l) => l.id);
 
       const { error: erroPedido } = await supabaseBrowser.from("pedidos").insert(linhas);
@@ -152,7 +189,8 @@ export default function NovoPedidoPage() {
 
       setEstado("sucesso");
       form.reset();
-      setServicos([novoServico()]);
+      setMarcacoes({});
+      setDetalhes({});
       setFotos([]);
     } catch (err) {
       console.error(err);
@@ -243,80 +281,90 @@ export default function NovoPedidoPage() {
               />
             </fieldset>
 
-            {servicos.map((s, i) => (
-              <fieldset
-                key={s.chave}
-                className="flex min-w-0 flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
-              >
-                <legend className="px-1 text-sm font-semibold text-navy">
-                  {servicos.length > 1 ? `Serviço ${i + 1}` : "Trabalho a ser realizado"}
-                </legend>
+            <fieldset className="flex min-w-0 flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4">
+              <legend className="px-1 text-sm font-semibold text-navy">
+                Trabalho a ser realizado
+              </legend>
 
-                {servicos.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removerServico(s.chave)}
-                    className="self-end text-xs font-medium text-rose-600 hover:underline"
-                  >
-                    Remover este serviço
-                  </button>
-                )}
+              <div>
+                <span className="mb-1 block text-sm font-medium text-slate-700">
+                  Dentes e trabalhos <span className="text-rose-500">*</span>
+                </span>
+                <OdontogramaTrabalhos marcacoes={marcacoes} onChange={setMarcacoes} />
+              </div>
 
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="font-medium text-slate-700">Tipo de trabalho</span>
-                  <select
-                    value={s.tipoTrabalho}
-                    onChange={(e) => atualizarServico(s.chave, { tipoTrabalho: e.target.value })}
-                    className={CLASSE_INPUT}
-                  >
-                    {TIPOS_TRABALHO.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <div>
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
-                    Dentes envolvidos <span className="text-rose-500">*</span>
-                  </span>
-                  <OdontogramaSelector
-                    selecionados={s.dentes}
-                    onChange={(dentes) => atualizarServico(s.chave, { dentes })}
-                  />
+              {grupos.length === 0 ? (
+                <p className="text-sm text-slate-500">Nenhum trabalho marcado ainda.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {grupos.map((g) => {
+                    const d = detalheDe(g.chave);
+                    const cor = COR_CATEGORIA[g.caminho[0]] ?? "";
+                    return (
+                      <div key={g.chave} className="rounded-lg border border-slate-200 p-3">
+                        <div className="flex items-start gap-2">
+                          <span className={`mt-1 inline-block h-3 w-3 shrink-0 rounded-full border ${cor}`} />
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">{g.chave}</p>
+                            <p className="text-xs text-slate-500">
+                              {g.dentes.length === 1 ? "Dente" : "Dentes"} {g.dentes.join(", ")}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          {pedeCor(g.caminho) && (
+                            <CampoControlado
+                              label="Cor final"
+                              required
+                              placeholder="Ex: A2, A3.5, BL2..."
+                              value={d.cor}
+                              onChange={(v) => atualizarDetalhe(g.chave, { cor: v })}
+                            />
+                          )}
+                          {ehPontico(g.caminho) && (
+                            <p className="self-end pb-2 text-xs text-slate-500">
+                              Cor: segue a cor final do restante do caso.
+                            </p>
+                          )}
+                          <CampoControlado
+                            label="Prazo desejado"
+                            type="date"
+                            value={d.prazo}
+                            onChange={(v) => atualizarDetalhe(g.chave, { prazo: v })}
+                          />
+                        </div>
+                        <label className="mt-3 flex items-center gap-2 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={d.retrabalho}
+                            onChange={(e) => atualizarDetalhe(g.chave, { retrabalho: e.target.checked })}
+                          />
+                          É retrabalho
+                        </label>
+                        {d.retrabalho && (
+                          <label className="mt-2 flex flex-col gap-1 text-sm">
+                            <span className="font-medium text-slate-700">
+                              Motivo do retrabalho <span className="text-rose-500">*</span>
+                            </span>
+                            <select
+                              required
+                              value={d.motivoRetrabalho}
+                              onChange={(e) => atualizarDetalhe(g.chave, { motivoRetrabalho: e.target.value })}
+                              className="rounded-md border border-slate-300 bg-white px-3 py-2"
+                            >
+                              <option value="">Selecione...</option>
+                              {MOTIVOS_RETRABALHO.map((m) => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-
-                <CampoControlado
-                  label="Material desejado"
-                  required
-                  placeholder="Ex: Zircônia, e.max, PMMA..."
-                  value={s.material}
-                  onChange={(material) => atualizarServico(s.chave, { material })}
-                />
-                <CampoControlado
-                  label="Cor final da restauração"
-                  required
-                  placeholder="Ex: A2, A3.5, BL2..."
-                  value={s.cor}
-                  onChange={(cor) => atualizarServico(s.chave, { cor })}
-                />
-                <CampoControlado
-                  label="Prazo desejado"
-                  type="date"
-                  value={s.prazo}
-                  onChange={(prazo) => atualizarServico(s.chave, { prazo })}
-                />
-              </fieldset>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => setServicos((lista) => [...lista, novoServico()])}
-              className="rounded-lg border-2 border-dashed border-navy/40 px-4 py-3 text-sm font-semibold text-navy hover:bg-navy/5"
-            >
-              + Adicionar outro serviço para este paciente
-            </button>
+              )}
+            </fieldset>
 
             <fieldset className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4">
               <legend className="px-1 text-sm font-semibold text-navy">
@@ -389,8 +437,8 @@ export default function NovoPedidoPage() {
             >
               {estado === "enviando"
                 ? "Enviando..."
-                : servicos.length > 1
-                  ? `Enviar ordem de serviço (${servicos.length} serviços)`
+                : grupos.length > 1
+                  ? `Enviar ordem de serviço (${grupos.length} serviços)`
                   : "Enviar ordem de serviço"}
             </button>
           </form>
