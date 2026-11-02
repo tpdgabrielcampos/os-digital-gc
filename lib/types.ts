@@ -43,6 +43,9 @@ export const TIPOS_TRABALHO = [
   "Retrabalho",
 ];
 
+// Por onde os arquivos de escaneamento chegam ao laboratório.
+export const PLATAFORMAS_ENVIO = ["DSCORE", "ASX", "E-mail"];
+
 export interface PedidoFoto {
   id: string;
   pedido_id: string;
@@ -67,6 +70,7 @@ export interface Pedido {
   cor_restauracao: string | null;
   prazo_desejado: string | null;
   instalacao_agendada: string | null;
+  plataforma_envio: string | null;
   quem_preencheu: string | null;
   observacoes: string | null;
   dscore_referencia: string | null;
