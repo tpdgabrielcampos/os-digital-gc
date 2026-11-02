@@ -16,16 +16,9 @@ interface Detalhe {
   cor: string;
   prazo: string;
   retrabalho: boolean;
-  motivoRetrabalho: string;
 }
 
-const DETALHE_VAZIO: Detalhe = { cor: "", prazo: "", retrabalho: false, motivoRetrabalho: "" };
-
-const MOTIVOS_RETRABALHO = [
-  "Mudança de planejamento/repreparo",
-  "Reescaneamento de pilar",
-  "Ajuste de cor",
-];
+const DETALHE_VAZIO: Detalhe = { cor: "", prazo: "", retrabalho: false };
 
 const ORDEM_DENTES = [
   "18", "17", "16", "15", "14", "13", "12", "11",
@@ -103,9 +96,6 @@ export default function NovoPedidoPage() {
       if (pedeCor(g.caminho) && !detalheDe(g.chave).cor.trim()) {
         faltando.push(`Cor final (${g.chave})`);
       }
-      if (detalheDe(g.chave).retrabalho && !detalheDe(g.chave).motivoRetrabalho) {
-        faltando.push(`Motivo do retrabalho (${g.chave})`);
-      }
     }
 
     if (faltando.length > 0) {
@@ -139,7 +129,7 @@ export default function NovoPedidoPage() {
         return {
           ...comum,
           id: crypto.randomUUID(),
-          tipo_trabalho: g.chave + (d.retrabalho ? ` (Retrabalho: ${d.motivoRetrabalho})` : ""),
+          tipo_trabalho: g.chave + (d.retrabalho ? " (Retrabalho)" : ""),
           dentes: g.dentes,
           material: materialDoCaminho(g.caminho),
           cor_restauracao: ehPontico(g.caminho) ? corDoCaso : d.cor.trim() || null,
@@ -341,24 +331,6 @@ export default function NovoPedidoPage() {
                           />
                           É retrabalho
                         </label>
-                        {d.retrabalho && (
-                          <label className="mt-2 flex flex-col gap-1 text-sm">
-                            <span className="font-medium text-slate-700">
-                              Motivo do retrabalho <span className="text-rose-500">*</span>
-                            </span>
-                            <select
-                              required
-                              value={d.motivoRetrabalho}
-                              onChange={(e) => atualizarDetalhe(g.chave, { motivoRetrabalho: e.target.value })}
-                              className="rounded-md border border-slate-300 bg-white px-3 py-2"
-                            >
-                              <option value="">Selecione...</option>
-                              {MOTIVOS_RETRABALHO.map((m) => (
-                                <option key={m} value={m}>{m}</option>
-                              ))}
-                            </select>
-                          </label>
-                        )}
                       </div>
                     );
                   })}
