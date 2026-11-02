@@ -27,7 +27,6 @@ export const CATALOGO: NoCatalogo[] = [
       { nome: "Coroa", filhos: MATERIAIS_COROA, filhosSaoMaterial: true },
       { nome: "Pilar personalizado + coroa" },
       { nome: "Pôntico", filhos: MATERIAIS_COROA, filhosSaoMaterial: true },
-      { nome: "Ajuste de cor" },
     ],
   },
   {
@@ -42,9 +41,9 @@ export const CATALOGO: NoCatalogo[] = [
         filhos: [{ nome: "Dissilicato" }, { nome: "Resina híbrida" }],
         filhosSaoMaterial: true,
       },
-      { nome: "Ajuste de cor" },
     ],
   },
+  { nome: "Ajuste de cor" },
   { nome: "Enceramento diagnóstico" },
   {
     nome: "Protocolo",
@@ -99,7 +98,8 @@ export function ehPontico(caminho: string[]): boolean {
   return caminho[1] === "Pôntico";
 }
 
-/** Serviços de prótese (PSI/PSD) pedem a cor final — menos o pôntico. */
+/** Prótese (PSI/PSD) e Ajuste de cor pedem a cor final — menos o pôntico. */
 export function pedeCor(caminho: string[]): boolean {
+  if (caminho[0] === "Ajuste de cor") return true;
   return (caminho[0] === "PSI" || caminho[0] === "PSD") && !ehPontico(caminho);
 }
