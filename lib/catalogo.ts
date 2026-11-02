@@ -27,6 +27,7 @@ export const CATALOGO: NoCatalogo[] = [
       { nome: "Coroa", filhos: MATERIAIS_COROA, filhosSaoMaterial: true },
       { nome: "Pilar personalizado + coroa" },
       { nome: "Pôntico", filhos: MATERIAIS_COROA, filhosSaoMaterial: true },
+      { nome: "Ajuste de cor" },
     ],
   },
   {
@@ -41,6 +42,7 @@ export const CATALOGO: NoCatalogo[] = [
         filhos: [{ nome: "Dissilicato" }, { nome: "Resina híbrida" }],
         filhosSaoMaterial: true,
       },
+      { nome: "Ajuste de cor" },
     ],
   },
   { nome: "Enceramento diagnóstico" },
