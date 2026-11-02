@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseClient";
-import { TIPOS_TRABALHO } from "@/lib/types";
+import { PLATAFORMAS_ENVIO, TIPOS_TRABALHO } from "@/lib/types";
 import OdontogramaSelector from "@/components/OdontogramaSelector";
 
 type EstadoEnvio = "idle" | "enviando" | "sucesso" | "erro";
@@ -64,6 +64,7 @@ export default function NovoPedidoPage() {
       ["paciente_nome", "Nome do paciente"],
       ["dentista_nome", "Seu nome"],
       ["quem_preencheu", "Quem preencheu"],
+      ["plataforma_envio", "Plataforma de envio"],
     ];
     const faltando = camposObrigatorios
       .filter(([nomeCampo]) => !String(data.get(nomeCampo) ?? "").trim())
@@ -96,6 +97,7 @@ export default function NovoPedidoPage() {
         dentista_nome: String(data.get("dentista_nome") ?? ""),
         quem_preencheu: String(data.get("quem_preencheu") ?? "").trim(),
         instalacao_agendada: (data.get("instalacao_agendada") as string) || null,
+        plataforma_envio: (data.get("plataforma_envio") as string) || null,
         observacoes: (data.get("observacoes") as string) || null,
       };
       const linhas = servicos.map((s) => ({
@@ -320,6 +322,26 @@ export default function NovoPedidoPage() {
               <legend className="px-1 text-sm font-semibold text-navy">
                 Informações gerais
               </legend>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-slate-700">
+                  Plataforma de envio <span className="text-rose-500">*</span>
+                </span>
+                <select
+                  name="plataforma_envio"
+                  required
+                  defaultValue=""
+                  className={CLASSE_INPUT}
+                >
+                  <option value="" disabled>
+                    Selecione...
+                  </option>
+                  {PLATAFORMAS_ENVIO.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <Campo
                 label="Data da instalação agendada"
                 name="instalacao_agendada"
