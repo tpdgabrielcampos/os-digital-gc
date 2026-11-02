@@ -77,6 +77,7 @@ export default async function PedidoDetalhePage({ params }: { params: { id: stri
               label="Instalação agendada"
               valor={formatarData(pedido.instalacao_agendada)}
             />
+            <Linha label="Plataforma de envio" valor={pedido.plataforma_envio || "—"} />
             <Linha label="Observações" valor={pedido.observacoes ?? "—"} multiline />
           </Secao>
 
