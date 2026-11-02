@@ -13,6 +13,7 @@ import { SEPARADOR, opcoesDepoisDe } from "@/lib/catalogo";
 export const COR_CATEGORIA: Record<string, string> = {
   PSI: "border-indigo-700 bg-indigo-600 text-white",
   PSD: "border-sky-700 bg-sky-500 text-white",
+  "Ajuste de cor": "border-orange-700 bg-orange-500 text-white",
   "Enceramento diagnóstico": "border-amber-600 bg-amber-400 text-amber-950",
   Protocolo: "border-violet-700 bg-violet-500 text-white",
   "Planejamento de implante": "border-emerald-700 bg-emerald-500 text-white",
