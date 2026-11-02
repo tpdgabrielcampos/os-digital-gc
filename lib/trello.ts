@@ -127,6 +127,7 @@ function descricaoCartao(pedido: Pedido) {
     pedido.instalacao_agendada
       ? `Instalação agendada: ${dataBR(pedido.instalacao_agendada)}`
       : null,
+    pedido.plataforma_envio ? `Plataforma de envio: ${pedido.plataforma_envio}` : null,
     pedido.quem_preencheu ? `Preenchido por: ${pedido.quem_preencheu}` : null,
     pedido.dscore_referencia ? `Referência DS Core: ${pedido.dscore_referencia}` : null,
     pedido.observacoes ? `Observações: ${pedido.observacoes}` : null,
