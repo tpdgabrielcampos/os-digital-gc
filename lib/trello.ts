@@ -119,7 +119,13 @@ function dataBR(valor: string) {
 function descricaoCartao(pedido: Pedido) {
   const linhas = [
     `Dentista: ${pedido.dentista_nome}`,
-    `Trabalho: ${pedido.tipo_trabalho}`,
+    // OS com vários trabalhos: um por linha.
+    pedido.tipo_trabalho.includes(" + ")
+      ? `Trabalhos:\n${pedido.tipo_trabalho
+          .split(" + ")
+          .map((t) => `• ${t}`)
+          .join("\n")}`
+      : `Trabalho: ${pedido.tipo_trabalho}`,
     pedido.dentes?.length ? `Dentes: ${pedido.dentes.join(", ")}` : null,
     pedido.material ? `Material: ${pedido.material}` : null,
     pedido.cor_restauracao ? `Cor: ${pedido.cor_restauracao}` : null,
