@@ -12,6 +12,12 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-service-role-key";
 
+// O Next.js guarda em cache as respostas de fetch() feitas no servidor. Sem o
+// "no-store" abaixo, o painel podia mostrar uma lista antiga de pedidos (sem
+// as OS mais recentes). Assim toda consulta vai direto ao banco.
 export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false },
+  global: {
+    fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+  },
 });
