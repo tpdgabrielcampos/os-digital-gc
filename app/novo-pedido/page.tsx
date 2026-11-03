@@ -8,10 +8,10 @@ import OdontogramaTrabalhos, { COR_CATEGORIA, Marcacoes } from "@/components/Odo
 
 type EstadoEnvio = "idle" | "enviando" | "sucesso" | "erro";
 
-// Cada ordem de serviço (OS) pode ter vários serviços. O dentista marca no
-// odontograma o trabalho de cada dente; dentes com o mesmo trabalho viram um
-// serviço só (uma linha em "pedidos", com status, prazo e cartão do Trello
-// próprios). Todas as linhas da mesma OS compartilham o mesmo "os_id".
+// Cada ordem de serviço (OS) pode ter vários trabalhos, marcados dente a dente
+// no odontograma. A OS inteira vira UMA linha em "pedidos" (um cartão no
+// Trello, uma linha na planilha): os trabalhos ficam juntos em "tipo_trabalho",
+// separados por " + ", cada um com seus dentes.
 // A cor final e o prazo valem para o caso inteiro (todos os serviços da OS);
 // só o "É retrabalho" é marcado serviço por serviço.
 interface Detalhe {
@@ -19,6 +19,9 @@ interface Detalhe {
 }
 
 const DETALHE_VAZIO: Detalhe = { retrabalho: false };
+
+/** Separa os trabalhos da mesma OS dentro de "tipo_trabalho". */
+const SEPARADOR_TRABALHOS = " + ";
 
 const ORDEM_DENTES = [
   "18", "17", "16", "15", "14", "13", "12", "11",
@@ -122,18 +125,26 @@ export default function NovoPedidoPage() {
         plataforma_envio: (data.get("plataforma_envio") as string) || null,
         observacoes: (data.get("observacoes") as string) || null,
       };
-      const linhas = grupos.map((g) => {
-        const d = detalheDe(g.chave);
-        return {
+      const varios = grupos.length > 1;
+      const trabalhos = grupos.map((g) => {
+        const dentes = varios ? ` (dente${g.dentes.length > 1 ? "s" : ""} ${g.dentes.join(", ")})` : "";
+        const retrabalho = detalheDe(g.chave).retrabalho ? " (Retrabalho)" : "";
+        return g.chave + dentes + retrabalho;
+      });
+      const materiais = Array.from(
+        new Set(grupos.map((g) => materialDoCaminho(g.caminho)).filter((m): m is string => !!m))
+      );
+      const linhas = [
+        {
           ...comum,
           id: crypto.randomUUID(),
-          tipo_trabalho: g.chave + (d.retrabalho ? " (Retrabalho)" : ""),
-          dentes: g.dentes,
-          material: materialDoCaminho(g.caminho),
-          cor_restauracao: usaCor(g.caminho) ? corCaso.trim() || null : null,
+          tipo_trabalho: trabalhos.join(SEPARADOR_TRABALHOS),
+          dentes: ORDEM_DENTES.filter((d) => marcacoes[d]),
+          material: materiais.join(", ") || null,
+          cor_restauracao: casoPedeCor ? corCaso.trim() || null : null,
           prazo_desejado: prazoCaso || null,
-        };
-      });
+        },
+      ];
       const pedidoIds = linhas.map((l) => l.id);
 
       const { error: erroPedido } = await supabaseBrowser.from("pedidos").insert(linhas);
@@ -408,7 +419,7 @@ export default function NovoPedidoPage() {
               {estado === "enviando"
                 ? "Enviando..."
                 : grupos.length > 1
-                  ? `Enviar ordem de serviço (${grupos.length} serviços)`
+                  ? `Enviar ordem de serviço (${grupos.length} trabalhos)`
                   : "Enviar ordem de serviço"}
             </button>
           </form>
