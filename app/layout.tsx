@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TATIM Laboratório — Ordens de Serviço",
-  description: "Envio e controle de ordens de serviço do laboratório TATIM",
+  title: "OS digital GC — Ordens de Serviço",
+  description: "Envio e controle de ordens de serviço — OS digital GC",
 };
 
 export default function RootLayout({
