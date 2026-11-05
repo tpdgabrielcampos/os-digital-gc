@@ -101,13 +101,27 @@ function Entrar() {
     <div className="gc-app relative min-h-screen overflow-hidden text-zinc-200">
       <div className="gc-ceu gc-ceu-forte" aria-hidden />
       <div className="relative z-10 mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-6 py-10 lg:grid-cols-[1.1fr_1fr]">
-        <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+        <div className="flex flex-col items-center text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-gabriel-campos.png" alt="Gabriel Campos" className="h-52 w-auto invert sm:h-72 lg:h-80" />
-          <p className="mt-8 max-w-md text-xl font-semibold italic leading-snug text-white sm:mt-10 sm:text-3xl">
-            Dentistry is what we do,{" "}
-            <span className="bg-gradient-to-r from-[#8f5bd9] via-[#e0649c] to-[#f2a43a] bg-clip-text text-transparent">
-              changing lives is why we do!
+          {/* Frase em "recortes de revista" — estilos em globals.css (.recortes) */}
+          <p className="recortes mt-8 sm:mt-10" aria-label="Dentistry is what we do, changing lives is why we do!">
+            <span className="linha">
+              <span className="rc-dentistry">DENTISTRY</span>
+              <span className="rc-iswhat">is what</span>
+              <span className="par">
+                <span className="rc-we">WE</span>
+                <span className="rc-do">DO,</span>
+              </span>
+            </span>
+            <span className="linha">
+              <span className="rc-changing">changing</span>
+              <span className="rc-lives">LIVES</span>
+              <span className="rc-iswhy">is why</span>
+              <span className="par">
+                <span className="rc-we2">WE</span>
+                <span className="rc-do2">DO!</span>
+              </span>
             </span>
           </p>
         </div>
