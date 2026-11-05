@@ -1,4 +1,4 @@
-// Planilha "Pedidos Lab Tatim" — recebe pedidos do site e acrescenta linhas.
+// Planilha "Pedidos OS digital GC" — recebe pedidos do site e acrescenta linhas.
 // Cole este código em Extensões > Apps Script, dentro da própria planilha.
 
 var CABECALHO = [
