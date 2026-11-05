@@ -5,3 +5,100 @@
 html {
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ---------- Tema OS digital GC (preto + splash de aquarela da identidade GC) ---------- */
+:root {
+  --gc-roxo: #8f5bd9;
+  --gc-rosa: #e0649c;
+  --gc-ciano: #5fb8cf;
+  --gc-laranja: #f2a43a;
+}
+.gc-app {
+  font-family: "Sora", ui-sans-serif, system-ui, sans-serif;
+  background: #000;
+}
+/* Fundo fixo: o splash fica no canto de baixo à direita, como na identidade visual. */
+.gc-ceu {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: url("/fundo-gc.jpg") right bottom / cover no-repeat;
+  opacity: 0.55;
+}
+.gc-ceu-forte { opacity: 1; }
+.gc-card {
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 10, 12, 0.82);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.9);
+}
+.gc-hero {
+  background:
+    radial-gradient(ellipse 40% 120% at 100% 100%, rgba(242, 164, 58, 0.16), transparent 70%),
+    radial-gradient(ellipse 35% 110% at 82% 120%, rgba(224, 100, 156, 0.18), transparent 70%),
+    radial-gradient(ellipse 30% 90% at 65% 130%, rgba(143, 91, 217, 0.22), transparent 70%),
+    rgba(10, 10, 12, 0.88);
+}
+.gc-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--gc-laranja), var(--gc-rosa));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.gc-chip {
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #d4d4d8;
+  white-space: nowrap;
+}
+.gc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.85rem;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: filter 0.15s, background 0.15s;
+}
+.gc-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.gc-btn-principal {
+  color: #fff;
+  background: linear-gradient(100deg, var(--gc-roxo), var(--gc-rosa) 55%, var(--gc-laranja));
+  box-shadow: 0 12px 30px -12px rgba(224, 100, 156, 0.75);
+}
+.gc-btn-principal:hover { filter: brightness(1.08); }
+.gc-btn-secundario {
+  color: #f4f4f5;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.gc-btn-secundario:hover { background: rgba(255, 255, 255, 0.09); }
+.gc-menu-ativo {
+  background: linear-gradient(90deg, rgba(224, 100, 156, 0.16), rgba(143, 91, 217, 0.06));
+  box-shadow: inset 3px 0 0 var(--gc-rosa);
+}
+.gc-input {
+  width: 100%;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.7rem 0.9rem;
+  color: #fafafa;
+  outline: none;
+}
+.gc-input::placeholder { color: #71717a; }
+.gc-input:focus { border-color: rgba(224, 100, 156, 0.7); box-shadow: 0 0 0 3px rgba(224, 100, 156, 0.15); }
+.gc-tabs { display: inline-flex; gap: 0.25rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.08); background: rgba(10,10,12,0.85); padding: 0.3rem; }
+.gc-tab { border-radius: 0.75rem; padding: 0.45rem 0.9rem; font-size: 0.9rem; font-weight: 600; color: #d4d4d8; }
+.gc-tab-ativa { color: #fff; background: linear-gradient(100deg, var(--gc-roxo), var(--gc-rosa)); }
+.gc-barra { background: linear-gradient(90deg, var(--gc-roxo), var(--gc-rosa), var(--gc-laranja)); }

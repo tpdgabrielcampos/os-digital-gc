@@ -129,6 +129,9 @@ function descricaoCartao(pedido: Pedido) {
     pedido.dentes?.length ? `Dentes: ${pedido.dentes.join(", ")}` : null,
     pedido.material ? `Material: ${pedido.material}` : null,
     pedido.cor_restauracao ? `Cor: ${pedido.cor_restauracao}` : null,
+    pedido.valor_estimado != null
+      ? `Valor estimado: ${Number(pedido.valor_estimado).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
+      : null,
     pedido.prazo_desejado ? `Prazo desejado: ${dataBR(pedido.prazo_desejado)}` : null,
     pedido.instalacao_agendada
       ? `Instalação agendada: ${dataBR(pedido.instalacao_agendada)}`
@@ -157,7 +160,7 @@ export async function criarCartaoTrello(pedido: Pedido): Promise<string | null> 
   try {
     const params = new URLSearchParams({
       idList: listId,
-      name: `${pedido.paciente_nome} — ${pedido.tipo_trabalho}`,
+      name: `${pedido.numero ? `GC-${String(pedido.numero).padStart(4, "0")} · ` : ""}${pedido.paciente_nome} — ${pedido.tipo_trabalho}`,
       desc: descricaoCartao(pedido),
     });
     const res = await fetch(`https://api.trello.com/1/cards?${authParams()}&${params}`, {

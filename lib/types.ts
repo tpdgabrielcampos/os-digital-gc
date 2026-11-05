@@ -77,5 +77,9 @@ export interface Pedido {
   status: StatusPedido;
   notas_internas: string | null;
   trello_card_id: string | null;
+  // Portal GC
+  numero?: number | null;
+  valor_estimado?: number | null;
+  dentista_id?: string | null;
   pedido_fotos?: PedidoFoto[];
 }

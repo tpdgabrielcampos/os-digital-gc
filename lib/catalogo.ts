@@ -103,3 +103,31 @@ export function pedeCor(caminho: string[]): boolean {
   if (caminho[0] === "Ajuste de cor") return true;
   return (caminho[0] === "PSI" || caminho[0] === "PSD") && !ehPontico(caminho);
 }
+
+/** Todos os serviços "finais" do catálogo (folhas), como caminhos. */
+export function todasAsFolhas(nivel: NoCatalogo[] = CATALOGO, prefixo: string[] = []): string[][] {
+  const saida: string[][] = [];
+  for (const no of nivel) {
+    const caminho = [...prefixo, no.nome];
+    if (no.filhos?.length) saida.push(...todasAsFolhas(no.filhos, caminho));
+    else saida.push(caminho);
+  }
+  return saida;
+}
+
+/** Como o serviço é cobrado: por dente (elemento) ou por arcada. */
+export type Unidade = "elemento" | "arcada";
+
+const POR_ARCADA = new Set(["Protocolo", "Placa miorelaxante", "Impressão de modelo", "Impressão de biomodelo"]);
+
+export function unidadeDoServico(caminho: string[]): Unidade {
+  return POR_ARCADA.has(caminho[0]) ? "arcada" : "elemento";
+}
+
+/** Quantidade cobrada: nº de dentes, ou nº de arcadas (superior/inferior) envolvidas. */
+export function quantidadeCobrada(caminho: string[], dentes: string[]): number {
+  if (unidadeDoServico(caminho) === "elemento") return dentes.length;
+  const sup = dentes.some((d) => d[0] === "1" || d[0] === "2");
+  const inf = dentes.some((d) => d[0] === "3" || d[0] === "4");
+  return (sup ? 1 : 0) + (inf ? 1 : 0);
+}

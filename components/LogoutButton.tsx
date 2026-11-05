@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { I } from "@/components/gc/ui";
 
 export default function LogoutButton() {
   const router = useRouter();
@@ -12,11 +13,8 @@ export default function LogoutButton() {
   }
 
   return (
-    <button
-      onClick={sair}
-      className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-800"
-    >
-      Sair
+    <button onClick={sair} title="Sair" className="text-slate-400 hover:text-white">
+      {I.sair}
     </button>
   );
 }

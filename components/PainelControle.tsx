@@ -74,16 +74,16 @@ export default function PainelControle({
   }
 
   return (
-    <div className="flex flex-col gap-5 rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold text-navy">Controle do laboratório</h2>
+    <div className="gc-card flex flex-col gap-5 p-5 sm:p-6">
+      <div><p className="gc-eyebrow">Laboratório</p><h2 className="mt-1 text-xl font-bold text-white">Controle do caso</h2></div>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-slate-700">Status do caso</span>
+        <span className="font-medium text-zinc-300">Status do caso</span>
         <select
           value={status}
           disabled={salvandoStatus}
           onChange={(e) => alterarStatus(e.target.value as StatusPedido)}
-          className="rounded-md border border-slate-300 px-3 py-2 focus:border-navy focus:outline-none disabled:opacity-60"
+          className="gc-input [color-scheme:dark] disabled:opacity-60"
         >
           {STATUS_ORDER.map((s) => (
             <option key={s} value={s}>
@@ -91,28 +91,28 @@ export default function PainelControle({
             </option>
           ))}
         </select>
-        {salvandoStatus && <span className="text-xs text-slate-400">Salvando...</span>}
+        {salvandoStatus && <span className="text-xs text-zinc-400">Salvando…</span>}
         {erroStatus && (
-          <p className="rounded-md bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+          <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-300">
             ⚠ {erroStatus}
           </p>
         )}
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-slate-700">Notas internas</span>
+        <span className="font-medium text-zinc-300">Notas internas</span>
         <textarea
           value={notas}
           onChange={(e) => setNotas(e.target.value)}
           rows={4}
-          className="rounded-md border border-slate-300 px-3 py-2 focus:border-navy focus:outline-none"
+          className="gc-input"
           placeholder="Anotações só visíveis pro laboratório..."
         />
       </label>
       <button
         onClick={salvarNotas}
         disabled={salvandoNotas}
-        className="self-start rounded-lg bg-navy px-4 py-2 text-sm font-medium text-white hover:bg-navy/90 disabled:opacity-60"
+        className="gc-btn gc-btn-secundario self-start disabled:opacity-60"
       >
         {salvandoNotas ? "Salvando..." : "Salvar notas"}
       </button>
@@ -120,7 +120,7 @@ export default function PainelControle({
       {mensagemNotas && (
         <p
           className={`text-xs ${
-            mensagemNotas === "Notas salvas." ? "text-slate-500" : "font-medium text-rose-700"
+            mensagemNotas === "Notas salvas." ? "text-emerald-300" : "font-medium text-rose-300"
           }`}
         >
           {mensagemNotas}

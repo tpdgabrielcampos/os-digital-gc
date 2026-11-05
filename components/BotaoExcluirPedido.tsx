@@ -41,7 +41,7 @@ export default function BotaoExcluirPedido({
       disabled={apagando}
       title="Apagar pedido"
       aria-label={`Apagar pedido de ${pacienteNome}`}
-      className="rounded-md p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+      className="rounded-md p-1.5 text-zinc-500 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-50"
     >
       {apagando ? (
         <span className="block h-4 w-4 animate-pulse text-xs">…</span>

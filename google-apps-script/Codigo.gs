@@ -7,11 +7,17 @@ var CABECALHO = [
   'Data da instalação agendada', 'Quem preencheu', 'Observações', 'Link das fotos'
 ];
 
+// Pasta raiz no Google Drive onde ficam os arquivos dos casos:
+//   OS digital GC — Arquivos / <Dentista> / <Paciente – GC-0001> / arquivo.stl
+var PASTA_RAIZ = 'OS digital GC — Arquivos';
+
 function doPost(e) {
+  var dados0 = JSON.parse(e.postData.contents);
+  if (dados0.acao === 'arquivo') return salvarArquivo(dados0);
   var trava = LockService.getScriptLock();
   try {
     trava.waitLock(30000);
-    var dados = JSON.parse(e.postData.contents);
+    var dados = dados0;
     var linhas = dados.linhas || [];
     var aba = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
 
@@ -62,4 +68,45 @@ function doPost(e) {
 function resposta(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Baixa o arquivo do servidor do site (link temporário) e salva no Drive,
+// na pasta do dentista / paciente. Se já existir um arquivo com o mesmo nome
+// nessa pasta, não duplica: devolve o que já está lá.
+function salvarArquivo(d) {
+  try {
+    // Trava só a criação das pastas, para dois arquivos do mesmo caso não
+    // criarem a mesma pasta duas vezes.
+    var trava = LockService.getScriptLock();
+    trava.waitLock(30000);
+    var pasta;
+    try {
+      pasta = pastaPorCaminho([PASTA_RAIZ].concat(d.pastas || []));
+    } finally {
+      trava.releaseLock();
+    }
+    var existentes = pasta.getFilesByName(d.nome);
+    if (existentes.hasNext()) {
+      var f0 = existentes.next();
+      return resposta({ ok: true, id: f0.getId(), url: f0.getUrl(), jaExistia: true });
+    }
+    var r = UrlFetchApp.fetch(d.url, { muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) {
+      return resposta({ ok: false, erro: 'download falhou: HTTP ' + r.getResponseCode() });
+    }
+    var arquivo = pasta.createFile(r.getBlob().setName(d.nome));
+    return resposta({ ok: true, id: arquivo.getId(), url: arquivo.getUrl() });
+  } catch (erro) {
+    return resposta({ ok: false, erro: String(erro) });
+  }
+}
+
+function pastaPorCaminho(nomes) {
+  var atual = DriveApp.getRootFolder();
+  nomes.forEach(function (nome) {
+    var limpo = String(nome || 'Sem nome').replace(/[\\/]/g, '-').trim() || 'Sem nome';
+    var it = atual.getFoldersByName(limpo);
+    atual = it.hasNext() ? it.next() : atual.createFolder(limpo);
+  });
+  return atual;
 }

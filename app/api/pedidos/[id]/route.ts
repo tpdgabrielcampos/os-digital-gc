@@ -68,9 +68,18 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ ok: false, erro: "Não autorizado" }, { status: 401 });
   }
 
-  // As fotos do pedido (tabela pedido_fotos) têm "on delete cascade" pro
-  // pedido_id, então apagam junto automaticamente — não precisa apagar
-  // manualmente aqui.
+  // As fotos e o registro dos arquivos (pedido_fotos / pedido_arquivos) têm
+  // "on delete cascade", então somem junto. Os arquivos guardados no servidor
+  // (Storage) são apagados aqui; a cópia no Google Drive fica.
+  const { data: arquivos } = await supabaseAdmin
+    .from("pedido_arquivos")
+    .select("caminho")
+    .eq("pedido_id", params.id)
+    .eq("removido_do_servidor", false);
+  if (arquivos?.length) {
+    await supabaseAdmin.storage.from("arquivos-os").remove(arquivos.map((a) => a.caminho));
+  }
+
   const { error, count } = await supabaseAdmin
     .from("pedidos")
     .delete({ count: "exact" })

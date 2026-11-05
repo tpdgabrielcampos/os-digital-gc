@@ -1,171 +1,144 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { Pedido } from "@/lib/types";
-import StatusBadge from "@/components/StatusBadge";
+import { Pedido, STATUS_LABEL } from "@/lib/types";
+import AdminShell from "@/components/gc/AdminShell";
+import { PageHeader, Panel } from "@/components/gc/ui";
 import PainelControle from "@/components/PainelControle";
+import { PONTO_STATUS, brl, dataBR, dataHoraBR, numeroOS, tamanhoLegivel, type PedidoArquivo } from "@/lib/gc";
 
 export const dynamic = "force-dynamic";
 
-async function buscarPedido(id: string): Promise<Pedido | null> {
-  const { data, error } = await supabaseAdmin
-    .from("pedidos")
-    .select("*, pedido_fotos(*)")
-    .eq("id", id)
-    .single();
-
-  if (error || !data) return null;
-  return data as Pedido;
-}
-
-// Os outros serviços enviados na mesma ordem de serviço (mesmo os_id).
-async function buscarOutrosServicos(pedido: Pedido): Promise<Pedido[]> {
-  if (!pedido.os_id) return [];
-  const { data, error } = await supabaseAdmin
-    .from("pedidos")
-    .select("id, tipo_trabalho, dentes, status, prazo_desejado")
-    .eq("os_id", pedido.os_id)
-    .neq("id", pedido.id)
-    .order("created_at", { ascending: true });
-
-  if (error || !data) return [];
-  return data as Pedido[];
-}
-
-function formatarData(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR");
-}
+type PedidoGC = Pedido & {
+  numero: number | null;
+  valor_estimado: number | null;
+  pedido_arquivos: PedidoArquivo[];
+};
 
 export default async function PedidoDetalhePage({ params }: { params: { id: string } }) {
-  const pedido = await buscarPedido(params.id);
-  if (!pedido) notFound();
-  const outrosServicos = await buscarOutrosServicos(pedido);
+  const { data } = await supabaseAdmin
+    .from("pedidos")
+    .select("*, pedido_fotos(*), pedido_arquivos(*)")
+    .eq("id", params.id)
+    .single();
+  if (!data) notFound();
+  const pedido = data as PedidoGC;
+
+  // Links temporários (1 h) para baixar os arquivos que ainda estão no servidor.
+  const arquivos = await Promise.all(
+    (pedido.pedido_arquivos ?? []).map(async (a) => {
+      let link: string | null = null;
+      if (!a.removido_do_servidor) {
+        const { data: s } = await supabaseAdmin.storage
+          .from("arquivos-os")
+          .createSignedUrl(a.caminho, 3600, { download: a.nome });
+        link = s?.signedUrl ?? null;
+      }
+      return { ...a, link };
+    })
+  );
+
+  const trabalhos = pedido.tipo_trabalho.split(" + ");
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-8">
-      <Link href="/dashboard" className="text-sm text-slate-500 hover:text-navy">
-        ← Voltar ao painel
-      </Link>
+    <AdminShell ativo="/dashboard/ordens">
+      <Link href="/dashboard/ordens" className="text-sm text-zinc-400 hover:text-white">← Voltar às ordens de serviço</Link>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-navy">{pedido.paciente_nome}</h1>
-        <StatusBadge status={pedido.status} />
-      </div>
+      <PageHeader
+        eyebrow={numeroOS(pedido.numero)}
+        title={pedido.paciente_nome}
+        subtitle={
+          <span className="inline-flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${PONTO_STATUS[pedido.status]}`} />
+              {STATUS_LABEL[pedido.status]}
+            </span>
+            <span className="text-zinc-500">·</span>
+            <span>{pedido.dentista_nome}{pedido.clinica ? ` — ${pedido.clinica}` : ""}</span>
+            <span className="text-zinc-500">·</span>
+            <span className="text-zinc-400">recebida {dataHoraBR(pedido.created_at)}</span>
+          </span>
+        }
+      />
 
-      <div className="mt-6 grid gap-6 md:grid-cols-3">
-        <div className="flex flex-col gap-6 md:col-span-2">
-          <Secao titulo="Dados do paciente">
-            <Linha label="Nome" valor={pedido.paciente_nome} />
-          </Secao>
+      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <Panel eyebrow="Trabalho" title={trabalhos.length > 1 ? `${trabalhos.length} trabalhos` : "Trabalho"}>
+            <ul className="flex flex-col gap-2">
+              {trabalhos.map((t) => (
+                <li key={t} className="rounded-xl bg-white/[0.03] px-3 py-2.5 text-white">{t}</li>
+              ))}
+            </ul>
+            <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-3">
+              <Item rotulo="Dentes" valor={pedido.dentes?.join(", ") || "—"} />
+              <Item rotulo="Material" valor={pedido.material ?? "—"} />
+              <Item rotulo="Cor final" valor={pedido.cor_restauracao ?? "—"} />
+              <Item rotulo="Prazo desejado" valor={dataBR(pedido.prazo_desejado)} />
+              <Item rotulo="Instalação agendada" valor={dataBR(pedido.instalacao_agendada)} />
+              <Item rotulo="Valor estimado" valor={pedido.valor_estimado != null ? brl(pedido.valor_estimado) : "—"} />
+            </dl>
+            {pedido.observacoes && (
+              <div className="mt-5 rounded-xl bg-white/[0.03] p-4 text-sm">
+                <p className="text-xs text-zinc-500">Observações do dentista</p>
+                <p className="mt-1 whitespace-pre-wrap text-zinc-200">{pedido.observacoes}</p>
+              </div>
+            )}
+          </Panel>
 
-          <Secao titulo="Dentista">
-            <Linha label="Dentista" valor={pedido.dentista_nome} />
-            <Linha label="Quem preencheu" valor={pedido.quem_preencheu || "—"} />
-          </Secao>
-
-          <Secao titulo="Trabalho">
-            <Linha label="Tipo" valor={pedido.tipo_trabalho} />
-            <Linha
-              label="Dentes"
-              valor={pedido.dentes?.length ? pedido.dentes.join(", ") : "—"}
-            />
-            <Linha label="Material" valor={pedido.material ?? "—"} />
-            <Linha label="Cor da restauração" valor={pedido.cor_restauracao ?? "—"} />
-            <Linha label="Prazo desejado" valor={formatarData(pedido.prazo_desejado)} />
-            <Linha
-              label="Instalação agendada"
-              valor={formatarData(pedido.instalacao_agendada)}
-            />
-            <Linha label="Plataforma de envio" valor={pedido.plataforma_envio || "—"} />
-            <Linha label="Observações" valor={pedido.observacoes ?? "—"} multiline />
-          </Secao>
-
-          {outrosServicos.length > 0 && (
-            <Secao titulo="Outros serviços desta mesma OS">
-              <ul className="flex flex-col divide-y divide-slate-100">
-                {outrosServicos.map((s) => (
-                  <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                    <Link
-                      href={`/pedido/${s.id}`}
-                      className="text-sm font-medium text-navy hover:underline"
-                    >
-                      {s.tipo_trabalho}
-                      {s.dentes?.length ? ` — dentes ${s.dentes.join(", ")}` : ""}
-                    </Link>
-                    <div className="flex items-center gap-3 text-xs text-slate-500">
-                      <span>Prazo: {formatarData(s.prazo_desejado)}</span>
-                      <StatusBadge status={s.status} />
-                    </div>
-                  </li>
+          <Panel eyebrow="Arquivos" title="Escaneamentos e fotos" badge={`${arquivos.length} arquivo(s)`}>
+            {arquivos.length === 0 && !(pedido.pedido_fotos?.length) ? (
+              <p className="text-sm text-zinc-400">
+                Nenhum arquivo enviado pelo portal{pedido.plataforma_envio ? ` — plataforma de envio: ${pedido.plataforma_envio}` : ""}.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {arquivos.map((a) => (
+                  <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-2.5">
+                    <span className="min-w-0 flex-1 truncate text-sm text-white">{a.nome}</span>
+                    <span className="text-xs text-zinc-400">{tamanhoLegivel(a.tamanho)}</span>
+                    {a.link && (
+                      <a href={a.link} className="text-xs font-semibold text-pink-300 hover:underline">Baixar</a>
+                    )}
+                    {a.drive_url ? (
+                      <a href={a.drive_url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-emerald-300 hover:underline">
+                        Ver no Drive
+                      </a>
+                    ) : (
+                      <span className="text-xs text-amber-300">copiando para o Drive…</span>
+                    )}
+                  </div>
                 ))}
-              </ul>
-            </Secao>
-          )}
-
-          {pedido.pedido_fotos && pedido.pedido_fotos.length > 0 && (
-            <Secao titulo="Fotos enviadas pelo dentista">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {pedido.pedido_fotos.map((f) => (
-                  <a
-                    key={f.id}
-                    href={f.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block overflow-hidden rounded-lg border border-slate-200"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={f.url}
-                      alt="Foto do caso"
-                      className="h-32 w-full object-cover"
-                    />
+                {(pedido.pedido_fotos ?? []).map((f) => (
+                  <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className="rounded-xl bg-white/[0.03] px-3 py-2.5 text-sm text-pink-300 hover:underline">
+                    Foto enviada
                   </a>
                 ))}
               </div>
-            </Secao>
-          )}
+            )}
+          </Panel>
         </div>
 
-        <div>
-          <PainelControle
-            pedidoId={pedido.id}
-            statusAtual={pedido.status}
-            notasIniciais={pedido.notas_internas}
-          />
-          <p className="mt-4 text-xs text-slate-400">
-            Recebido em {formatarData(pedido.created_at)}
-          </p>
+        <div className="flex flex-col gap-6">
+          <PainelControle pedidoId={pedido.id} statusAtual={pedido.status} notasIniciais={pedido.notas_internas} />
+          <Panel eyebrow="Contato" title="Dentista">
+            <dl className="flex flex-col gap-3 text-sm">
+              <Item rotulo="Nome" valor={pedido.dentista_nome} />
+              <Item rotulo="Clínica" valor={pedido.clinica ?? "—"} />
+              <Item rotulo="WhatsApp" valor={pedido.contato ?? "—"} />
+              <Item rotulo="Preenchido por" valor={pedido.quem_preencheu ?? "—"} />
+            </dl>
+          </Panel>
         </div>
       </div>
-    </main>
+    </AdminShell>
   );
 }
 
-function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Item({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="mb-3 font-semibold text-navy">{titulo}</h2>
-      <div className="flex flex-col gap-2">{children}</div>
-    </div>
-  );
-}
-
-function Linha({
-  label,
-  valor,
-  multiline = false,
-}: {
-  label: string;
-  valor: string;
-  multiline?: boolean;
-}) {
-  return (
-    <div className="flex flex-col text-sm sm:flex-row sm:gap-2">
-      <span className="w-40 shrink-0 text-slate-500">{label}</span>
-      <span className={`text-slate-800 ${multiline ? "whitespace-pre-wrap" : ""}`}>
-        {valor}
-      </span>
+    <div>
+      <dt className="text-xs text-zinc-500">{rotulo}</dt>
+      <dd className="mt-0.5 text-zinc-100">{valor}</dd>
     </div>
   );
 }

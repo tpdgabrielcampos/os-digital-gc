@@ -41,35 +41,25 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-      >
-        <h1 className="text-xl font-bold text-navy">Painel do laboratório</h1>
-        <p className="mt-1 text-sm text-slate-500">Acesso restrito</p>
+    <div className="gc-app relative flex min-h-screen items-center justify-center px-6 text-zinc-200">
+      <div className="gc-ceu gc-ceu-forte" aria-hidden />
+      <form onSubmit={handleSubmit} className="relative z-10 w-full max-w-sm rounded-[1.5rem] border border-white/10 bg-black/50 p-8 shadow-2xl backdrop-blur-md">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-gabriel-campos.png" alt="Gabriel Campos" className="mx-auto h-24 w-auto invert" />
+        <p className="gc-eyebrow mt-6 text-center">Painel do laboratório</p>
+        <h1 className="mt-1 text-center text-2xl font-bold text-white">Acesso restrito</h1>
 
-        <label className="mt-6 flex flex-col gap-1 text-sm">
-          <span className="font-medium text-slate-700">Senha</span>
-          <input
-            type="password"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            autoFocus
-            className="rounded-md border border-slate-300 px-3 py-2 focus:border-navy focus:outline-none"
-          />
+        <label className="mt-6 flex flex-col gap-1.5 text-sm text-zinc-300">
+          Senha
+          <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoFocus className="gc-input" />
         </label>
 
-        {erro && <p className="mt-2 text-sm text-rose-600">{erro}</p>}
+        {erro && <p className="mt-3 rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{erro}</p>}
 
-        <button
-          type="submit"
-          disabled={carregando}
-          className="mt-5 w-full rounded-lg bg-navy px-4 py-2.5 font-semibold text-white hover:bg-navy/90 disabled:opacity-60"
-        >
-          {carregando ? "Entrando..." : "Entrar"}
+        <button type="submit" disabled={carregando} className="gc-btn gc-btn-principal mt-6 w-full justify-center">
+          {carregando ? "Entrando…" : "Entrar"}
         </button>
       </form>
-    </main>
+    </div>
   );
 }
