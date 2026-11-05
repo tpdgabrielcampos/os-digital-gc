@@ -103,16 +103,13 @@ function Entrar() {
       <div className="relative z-10 mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-6 py-10 lg:grid-cols-[1.1fr_1fr]">
         <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-gabriel-campos.png" alt="Gabriel Campos" className="h-36 w-auto invert sm:h-52" />
-          <p className="gc-eyebrow mt-10">OS digital GC</p>
-          <h1 className="mt-3 max-w-md text-3xl font-bold leading-tight text-white sm:text-4xl">
-            Seus casos de prótese, do escaneamento à entrega.
-          </h1>
-          <ul className="mt-6 flex flex-col gap-3 text-zinc-300">
-            <li><span className="text-[#e0649c]">✦</span> Envie a OS com STL e fotos em um só lugar</li>
-            <li><span className="text-[#8f5bd9]">✦</span> Veja o valor estimado antes de enviar</li>
-            <li><span className="text-[#f2a43a]">✦</span> Acompanhe cada caso até a entrega</li>
-          </ul>
+          <img src="/logo-gabriel-campos.png" alt="Gabriel Campos" className="h-52 w-auto invert sm:h-72 lg:h-80" />
+          <p className="mt-8 max-w-md text-xl font-semibold italic leading-snug text-white sm:mt-10 sm:text-3xl">
+            Dentistry is what we do,{" "}
+            <span className="bg-gradient-to-r from-[#8f5bd9] via-[#e0649c] to-[#f2a43a] bg-clip-text text-transparent">
+              changing lives is why we do!
+            </span>
+          </p>
         </div>
 
         <form
