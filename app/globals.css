@@ -102,3 +102,28 @@ html {
 .gc-tab { border-radius: 0.75rem; padding: 0.45rem 0.9rem; font-size: 0.9rem; font-weight: 600; color: #d4d4d8; }
 .gc-tab-ativa { color: #fff; background: linear-gradient(100deg, var(--gc-roxo), var(--gc-rosa)); }
 .gc-barra { background: linear-gradient(90deg, var(--gc-roxo), var(--gc-rosa), var(--gc-laranja)); }
+
+/* ---------- Frase da tela inicial em "recortes" ---------- */
+/* Fontes servidas pelo jsDelivr (pacotes @fontsource, versão fixa). */
+@font-face { font-family: "GC Anton"; src: url("https://cdn.jsdelivr.net/npm/@fontsource/anton@5.3.0/files/anton-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "GC Playfair"; font-style: italic; font-weight: 700; src: url("https://cdn.jsdelivr.net/npm/@fontsource/playfair-display@5.3.0/files/playfair-display-latin-700-italic.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "GC Mono"; font-weight: 700; src: url("https://cdn.jsdelivr.net/npm/@fontsource/space-mono@5.3.0/files/space-mono-latin-700-normal.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "GC Caveat"; font-weight: 700; src: url("https://cdn.jsdelivr.net/npm/@fontsource/caveat@5.3.0/files/caveat-latin-700-normal.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "GC Bebas"; src: url("https://cdn.jsdelivr.net/npm/@fontsource/bebas-neue@5.3.0/files/bebas-neue-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+
+/* O tamanho de tudo acompanha o font-size do bloco: 14px no celular, 15px no desktop. */
+.recortes { font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 0.5em; }
+@media (min-width: 640px) { .recortes { font-size: 15px; } }
+.recortes .par { display: inline-flex; gap: 0.5em; align-items: center; }
+.recortes .linha { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.5em; }
+.recortes .linha > span:not(.par), .recortes .par > span { display: inline-block; line-height: 1.05; padding: 0.3em 0.6em 0.2em; box-shadow: 0.15em 0.2em 0 rgba(0, 0, 0, 0.6); white-space: nowrap; }
+.recortes .rc-dentistry { font: 400 2.3em "GC Anton", sans-serif; background: #f4efe6; color: #111; transform: rotate(-4deg); }
+.recortes .rc-iswhat { font: italic 700 2em "GC Playfair", serif; background: #111; color: #fff; border: 2px solid #fff; transform: rotate(3deg); }
+.recortes .rc-we, .recortes .rc-do, .recortes .rc-we2, .recortes .rc-do2 { font: 400 3.2em "GC Anton", sans-serif; padding: 0.1em 0.3em; }
+.recortes .rc-we { background: #e0649c; color: #fff; transform: rotate(-5deg); }
+.recortes .rc-do { background: #8f5bd9; color: #fff; transform: rotate(4deg); }
+.recortes .rc-changing { font: 700 1.7em "GC Caveat", cursive; background: #fffbe8; color: #222; transform: rotate(-3deg); }
+.recortes .rc-lives { font: 400 2.1em "GC Bebas", sans-serif; background: #5fb8cf; color: #0b0b0b; transform: rotate(3deg); }
+.recortes .rc-iswhy { font: 700 1.5em "GC Mono", monospace; background: #f2a43a; color: #111; transform: rotate(-2deg); }
+.recortes .rc-we2 { background: #f2a43a; color: #111; transform: rotate(3deg); }
+.recortes .rc-do2 { background: #fff; color: #111; transform: rotate(-4deg); }
