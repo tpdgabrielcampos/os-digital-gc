@@ -1,3 +1,7 @@
+# OS digital GC — Ordens de Serviço
+
+Cópia do site da Tatim, separada para controle próprio dos trabalhos (banco, Trello e planilha próprios).
+
 # TATIM — Ordens de Serviço
 
 Plataforma web simples para:
