@@ -10,6 +10,10 @@ import { ehPontico, materialDoCaminho, pedeCor } from "@/lib/catalogo";
 import { ORDEM_DENTES, agruparMarcacoes } from "@/lib/odontograma";
 import { orcamento } from "@/lib/precos";
 import { MAX_ARQUIVO, brl, numeroOS, tamanhoLegivel } from "@/lib/gc";
+import AssistenteVoz, { estadoParaMarcacoes } from "@/components/gc/AssistenteVoz";
+import type { EstadoVoz } from "@/lib/voz";
+
+const PREF_VOZ = "gc-assistente-voz";
 
 export default function NovaOSPage() {
   return (
@@ -60,6 +64,53 @@ function NovaOS() {
   const [resultado, setResultado] = useState<{ numero: number | null; falhas: number } | null>(null);
   const [arrastando, setArrastando] = useState(false);
   const inputArquivo = useRef<HTMLInputElement>(null);
+  const painelArquivos = useRef<HTMLDivElement>(null);
+  const [vozAberta, setVozAberta] = useState(false);
+  const [sempreVoz, setSempreVoz] = useState(false);
+  const [preenchidoPorVoz, setPreenchidoPorVoz] = useState(false);
+
+  // Preferência do dentista: abrir o assistente por voz sempre que entrar na Nova OS.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(PREF_VOZ) === "1") {
+        setSempreVoz(true);
+        setVozAberta(true);
+      }
+    } catch {}
+  }, []);
+
+  function mudarSempreVoz(v: boolean) {
+    setSempreVoz(v);
+    try {
+      localStorage.setItem(PREF_VOZ, v ? "1" : "0");
+    } catch {}
+  }
+
+  function estadoAtual(): EstadoVoz {
+    return {
+      paciente,
+      trabalhos: agruparMarcacoes(marcacoes).map((g) => ({ servico: g.chave, dentes: g.dentes, retrabalho: !!retrabalho[g.chave] })),
+      cor: corCaso,
+      prazo,
+      instalacao,
+      observacoes,
+    };
+  }
+
+  function aplicarVoz(e: EstadoVoz) {
+    setPaciente(e.paciente);
+    setMarcacoes(estadoParaMarcacoes(e));
+    setRetrabalho(Object.fromEntries(e.trabalhos.filter((t) => t.retrabalho).map((t) => [t.servico, true])));
+    setCorCaso(e.cor);
+    setPrazo(e.prazo);
+    setInstalacao(e.instalacao);
+    setObservacoes(e.observacoes);
+    setPreenchidoPorVoz(true);
+    setTimeout(() => {
+      setVozAberta(false);
+      painelArquivos.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 2500);
+  }
 
   useEffect(() => {
     if (!dentista.tabela_id) return;
@@ -215,12 +266,39 @@ function NovaOS() {
   const enviando = estado === "enviando";
 
   return (
+    <>
+    {vozAberta && (
+      <AssistenteVoz
+        token={sessao.access_token}
+        precos={precos}
+        inicial={estadoAtual()}
+        onAplicar={aplicarVoz}
+        onFechar={() => setVozAberta(false)}
+      />
+    )}
     <form onSubmit={enviar} className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Nova ordem de serviço"
         title="Enviar um caso"
         subtitle="Marque os dentes, escolha o trabalho e anexe os arquivos. Você vê o valor estimado antes de enviar."
+        actions={
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <Botao onClick={() => setVozAberta(true)} disabled={enviando}>
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+              Preencher por voz
+            </Botao>
+            <label className="flex items-center gap-2 text-xs text-zinc-400">
+              <input type="checkbox" checked={sempreVoz} onChange={(e) => mudarSempreVoz(e.target.checked)} />
+              Sempre abrir o assistente por voz
+            </label>
+          </div>
+        }
       />
+      {preenchidoPorVoz && (
+        <p className="rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          Preenchido pelo assistente por voz. Confira os dados, anexe os arquivos e toque em “Enviar ordem de serviço”.
+        </p>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <div className="flex min-w-0 flex-col gap-6">
@@ -271,6 +349,7 @@ function NovaOS() {
             )}
           </Panel>
 
+          <div ref={painelArquivos} />
           <Panel eyebrow="Arquivos" title="Escaneamentos e fotos" badge="STL, PLY, OBJ, JPG, PDF">
             <div
               onClick={() => inputArquivo.current?.click()}
@@ -379,5 +458,6 @@ function NovaOS() {
         </div>
       </div>
     </form>
+    </>
   );
 }
