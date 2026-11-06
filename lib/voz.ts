@@ -19,16 +19,30 @@ export const ESTADO_VAZIO: EstadoVoz = { paciente: "", trabalhos: [], cor: "", p
 
 export type EtapaVoz = "paciente" | "trabalhos" | "mais_trabalhos" | "cor" | "datas" | "observacoes" | "resumo";
 
-/** Pergunta falada em cada etapa. */
-export const PERGUNTA: Record<EtapaVoz, string> = {
-  paciente: "Olá! Vamos montar a ordem de serviço. Qual é o nome do paciente?",
-  trabalhos: "Qual trabalho vamos fazer, e em quais dentes?",
-  mais_trabalhos: "Tem mais algum trabalho nesse caso? Se não tiver, é só dizer não.",
-  cor: "Qual é a cor final do caso?",
-  datas: "Tem um prazo desejado ou uma data de instalação já marcada? Se não tiver, diga não.",
-  observacoes: "Alguma observação para o laboratório? Se não tiver, diga não.",
-  resumo: "Está tudo certo? Diga confirmar, ou fale o que quer corrigir.",
+/** Perguntas faladas em cada etapa (tom informal; sorteia uma para não soar repetitivo). */
+export const PERGUNTAS: Record<EtapaVoz, string[]> = {
+  paciente: ["E aí, tudo certo? Bora montar essa OS. Qual o nome do paciente?", "Opa! Vamos lá. Me fala o nome do paciente."],
+  trabalhos: ["Beleza. E o que a gente vai fazer, em quais dentes?", "Show. Qual é o trabalho e em quais dentes?"],
+  mais_trabalhos: ["Mais alguma coisa nesse caso? Se não tiver, fala não.", "Tem mais algum trabalho? Se não, é só falar não."],
+  cor: ["E a cor final, qual vai ser?", "Qual cor a gente segue?"],
+  datas: ["Tem prazo ou data de instalação marcada? Se não tiver, fala não.", "Pra quando você precisa? Se não tiver data, só fala não."],
+  observacoes: ["Quer deixar alguma observação pro laboratório? Se não, fala não.", "Alguma observação? Se não tiver, tranquilo, fala não."],
+  resumo: ["Tá tudo certo? Fala confirmar, ou me diz o que mudar.", "Confere aí: tá certo? Diz confirmar ou o que quer corrigir."],
 };
+
+export const pergunta = (etapa: EtapaVoz) => {
+  const l = PERGUNTAS[etapa];
+  return l[Math.floor(Math.random() * l.length)];
+};
+
+/** Ajustes do assistente escolhidos pelo dentista (guardados no navegador). */
+export interface ConfigVoz {
+  voz: string; // nome da voz do navegador ("" = automática)
+  velocidade: number; // 0.8 a 1.4
+  pausa: number; // ms de silêncio antes de considerar que terminou de falar
+}
+
+export const CONFIG_PADRAO: ConfigVoz = { voz: "", velocidade: 1, pausa: 2000 };
 
 /** Exemplo mostrado só na tela (não é falado, para o microfone não captar o exemplo como resposta). */
 export const DICA: Partial<Record<EtapaVoz, string>> = {
