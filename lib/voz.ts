@@ -22,12 +22,23 @@ export type EtapaVoz = "paciente" | "trabalhos" | "mais_trabalhos" | "cor" | "da
 /** Pergunta falada em cada etapa. */
 export const PERGUNTA: Record<EtapaVoz, string> = {
   paciente: "Olá! Vamos montar a ordem de serviço. Qual é o nome do paciente?",
-  trabalhos: "Qual trabalho vamos fazer, e em quais dentes? Por exemplo: coroa de zircônia sobre implante no dente 11.",
+  trabalhos: "Qual trabalho vamos fazer, e em quais dentes?",
   mais_trabalhos: "Tem mais algum trabalho nesse caso? Se não tiver, é só dizer não.",
-  cor: "Qual é a cor final do caso? Por exemplo: A2.",
+  cor: "Qual é a cor final do caso?",
   datas: "Tem um prazo desejado ou uma data de instalação já marcada? Se não tiver, diga não.",
   observacoes: "Alguma observação para o laboratório? Se não tiver, diga não.",
   resumo: "Está tudo certo? Diga confirmar, ou fale o que quer corrigir.",
+};
+
+/** Exemplo mostrado só na tela (não é falado, para o microfone não captar o exemplo como resposta). */
+export const DICA: Partial<Record<EtapaVoz, string>> = {
+  paciente: "Ex.: Maria Silva",
+  trabalhos: "Ex.: coroa de zircônia sobre implante no 11 e 21",
+  mais_trabalhos: "Ex.: faceta de dissilicato no 12 — ou “não”",
+  cor: "Ex.: A2, A3.5, BL2",
+  datas: "Ex.: prazo dia 20, instalação dia 25 — ou “não”",
+  observacoes: "Ex.: paciente com bruxismo — ou “não”",
+  resumo: "Diga “confirmar” ou o que quer corrigir",
 };
 
 /** Resposta da API para cada fala do dentista. */
