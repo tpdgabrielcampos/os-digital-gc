@@ -5,7 +5,7 @@ import { SEPARADOR, ehPontico, pedeCor } from "@/lib/catalogo";
 import { agruparMarcacoes } from "@/lib/odontograma";
 import { orcamento } from "@/lib/precos";
 import { brl } from "@/lib/gc";
-import { PERGUNTA, type EstadoVoz, type EtapaVoz, type RespostaVoz } from "@/lib/voz";
+import { DICA, PERGUNTA, type EstadoVoz, type EtapaVoz, type RespostaVoz } from "@/lib/voz";
 import type { Marcacoes } from "@/components/OdontogramaTrabalhos";
 
 // Assistente por voz da Nova OS. Pergunta etapa por etapa (fala em voz alta),
@@ -44,6 +44,26 @@ function listaDentes(dentes: string[]) {
   return `dentes ${dentes.slice(0, -1).join(", ")} e ${dentes[dentes.length - 1]}`;
 }
 
+/** Palavras de um texto, sem acento e pontuação. */
+function palavras(t: string) {
+  return t
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+}
+
+/** O microfone captou a própria voz do assistente? (maioria das palavras igual à última fala) */
+function ehEco(ouvido: string, falado: string) {
+  const a = palavras(ouvido);
+  if (a.length < 3) return false;
+  const b = new Set(palavras(falado));
+  const iguais = a.filter((w) => b.has(w)).length;
+  return iguais / a.length >= 0.6;
+}
+
 interface Mensagem {
   de: "assistente" | "dentista";
   texto: string;
@@ -67,6 +87,8 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
   const [mudo, setMudo] = useState(false);
   const [historico, setHistorico] = useState<Mensagem[]>([]);
   const [semMicrofone, setSemMicrofone] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const ultimaFala = useRef("");
   const reconhecedor = useRef<Reconhecedor | null>(null);
   const ativo = useRef(true);
   const fimDaLista = useRef<HTMLDivElement>(null);
@@ -117,15 +139,31 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
       }
       setParcial(final || interino);
     };
+    let erro = "";
     r.onerror = (ev: any) => {
+      erro = ev.error;
       if (ev.error === "not-allowed" || ev.error === "service-not-allowed") setSemMicrofone(true);
     };
     r.onend = () => {
       setParcial("");
       if (!ativo.current) return;
-      if (final.trim()) responder(final.trim());
-      else setStatus("parado");
+      const ouvido = final.trim();
+      if (ouvido && ehEco(ouvido, ultimaFala.current)) {
+        // captou a voz do próprio assistente: descarta e escuta de novo
+        setAviso("Captei a minha própria voz e ignorei. Se acontecer de novo, use fone de ouvido ou desligue a voz do assistente.");
+        ultimaFala.current = "";
+        setTimeout(() => ouvir(), 300);
+        return;
+      }
+      if (ouvido) responder(ouvido);
+      else {
+        setStatus("parado");
+        if (erro === "no-speech" || erro === "audio-capture")
+          setAviso("Não ouvi nada. Confira se o navegador está usando o microfone certo (ícone de câmera/microfone na barra de endereço) e toque no microfone para tentar de novo.");
+        else if (erro === "network") setAviso("Sem conexão com o reconhecimento de voz. Tente de novo ou digite a resposta.");
+      }
     };
+    setAviso(null);
     setStatus("ouvindo");
     try {
       r.start();
@@ -138,6 +176,10 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
   const falar = useCallback(
     (frase: string, depois: "ouvir" | "nada" = "ouvir") => {
       setHistorico((h) => [...h, { de: "assistente", texto: frase }]);
+      ultimaFala.current = frase;
+      try {
+        reconhecedor.current?.abort();
+      } catch {}
       const sintese = typeof window !== "undefined" ? window.speechSynthesis : undefined;
       if (ref.current.mudo || !sintese) {
         if (depois === "ouvir") ouvir();
@@ -153,16 +195,23 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
       let terminou = false;
       const fim = () => {
         if (terminou) return;
+        // só começa a ouvir depois que a voz terminou de verdade (evita captar a própria fala)
+        if (sintese.speaking) {
+          setTimeout(fim, 250);
+          return;
+        }
         terminou = true;
-        if (depois === "ouvir") ouvir();
-        else setStatus("parado");
+        setTimeout(() => {
+          if (depois === "ouvir") ouvir();
+          else setStatus("parado");
+        }, 600);
       };
       u.onend = fim;
       u.onerror = fim;
       setStatus("falando");
       sintese.speak(u);
       // alguns celulares não disparam onend: garante que segue
-      setTimeout(fim, Math.min(20000, 1500 + frase.length * 75));
+      setTimeout(fim, 4000 + frase.length * 110);
     },
     [ouvir]
   );
@@ -340,8 +389,12 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
                     </svg>
                   </button>
                 )}
-                <p className="text-sm text-zinc-300">{semMicrofone ? "Microfone indisponível neste navegador — digite a resposta abaixo." : rotuloStatus}</p>
+                <div className="min-w-0">
+                  <p className="text-sm text-zinc-300">{semMicrofone ? "Microfone indisponível neste navegador — digite a resposta abaixo." : rotuloStatus}</p>
+                  {historico.length > 0 && DICA[etapa] && <p className="mt-0.5 text-xs text-zinc-500">{DICA[etapa]}</p>}
+                </div>
               </div>
+              {aviso && <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-200">{aviso}</p>}
               <form onSubmit={enviarTexto} className="mt-3 flex gap-2">
                 <input className="gc-input flex-1" placeholder="Ou digite a resposta aqui…" value={texto} onChange={(e) => setTexto(e.target.value)} />
                 <button type="submit" className="gc-btn gc-btn-secundario" disabled={!texto.trim() || status === "pensando"}>
