@@ -5,7 +5,7 @@ import { SEPARADOR, ehPontico, pedeCor } from "@/lib/catalogo";
 import { agruparMarcacoes } from "@/lib/odontograma";
 import { orcamento } from "@/lib/precos";
 import { brl } from "@/lib/gc";
-import { DICA, PERGUNTA, type EstadoVoz, type EtapaVoz, type RespostaVoz } from "@/lib/voz";
+import { CONFIG_PADRAO, DICA, pergunta as sortearPergunta, type ConfigVoz, type EstadoVoz, type EtapaVoz, type RespostaVoz } from "@/lib/voz";
 import type { Marcacoes } from "@/components/OdontogramaTrabalhos";
 
 // Assistente por voz da Nova OS. Pergunta etapa por etapa (fala em voz alta),
@@ -22,7 +22,7 @@ function criarReconhecedor(): Reconhecedor | null {
   const r = new R();
   r.lang = "pt-BR";
   r.interimResults = true;
-  r.continuous = false;
+  r.continuous = true; // a gente decide quando parou de falar (tempo de pausa ajustável)
   r.maxAlternatives = 1;
   return r;
 }
@@ -64,6 +64,25 @@ function ehEco(ouvido: string, falado: string) {
   return iguais / a.length >= 0.6;
 }
 
+const CHAVE_CONFIG = "gc-voz-config";
+
+/** Voz escolhida pelo dentista, ou a mais natural disponível em português do Brasil. */
+function escolherVoz(todas: SpeechSynthesisVoice[], nome: string) {
+  const pt = todas.filter((v) => v.lang?.toLowerCase().startsWith("pt"));
+  if (nome) {
+    const v = pt.find((x) => x.name === nome);
+    if (v) return v;
+  }
+  const br = pt.filter((v) => v.lang.toLowerCase() === "pt-br" || v.lang.toLowerCase() === "pt_br");
+  return (
+    br.find((v) => /natural|neural|online/i.test(v.name)) ||
+    br.find((v) => /google/i.test(v.name)) ||
+    br.find((v) => /francisca|thalita|maria/i.test(v.name)) ||
+    br[0] ||
+    pt[0]
+  );
+}
+
 interface Mensagem {
   de: "assistente" | "dentista";
   texto: string;
@@ -80,7 +99,10 @@ interface Props {
 export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFechar }: Props) {
   const [estado, setEstado] = useState<EstadoVoz>(inicial);
   const [etapa, setEtapa] = useState<EtapaVoz>("paciente");
-  const [pergunta, setPergunta] = useState<string>(PERGUNTA.paciente);
+  const [pergunta, setPergunta] = useState<string>(() => sortearPergunta("paciente"));
+  const [config, setConfig] = useState<ConfigVoz>(CONFIG_PADRAO);
+  const [vozes, setVozes] = useState<SpeechSynthesisVoice[]>([]);
+  const [ajustesAbertos, setAjustesAbertos] = useState(false);
   const [status, setStatus] = useState<"falando" | "ouvindo" | "pensando" | "parado">("parado");
   const [parcial, setParcial] = useState("");
   const [texto, setTexto] = useState("");
@@ -93,8 +115,32 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
   const ativo = useRef(true);
   const fimDaLista = useRef<HTMLDivElement>(null);
   // refs para os callbacks da voz enxergarem o valor atual
-  const ref = useRef({ estado, etapa, pergunta, mudo });
-  ref.current = { estado, etapa, pergunta, mudo };
+  const ref = useRef({ estado, etapa, pergunta, mudo, config, vozes });
+  ref.current = { estado, etapa, pergunta, mudo, config, vozes };
+
+  // Vozes em português disponíveis neste navegador + ajustes salvos do dentista.
+  useEffect(() => {
+    const sintese = typeof window !== "undefined" ? window.speechSynthesis : undefined;
+    if (!sintese) return;
+    const carregar = () => setVozes(sintese.getVoices().filter((v) => v.lang?.toLowerCase().startsWith("pt")));
+    carregar();
+    sintese.addEventListener?.("voiceschanged", carregar);
+    try {
+      const salvo = localStorage.getItem(CHAVE_CONFIG);
+      if (salvo) setConfig({ ...CONFIG_PADRAO, ...JSON.parse(salvo) });
+    } catch {}
+    return () => sintese.removeEventListener?.("voiceschanged", carregar);
+  }, []);
+
+  function mudarConfig(c: Partial<ConfigVoz>) {
+    setConfig((atual) => {
+      const novo = { ...atual, ...c };
+      try {
+        localStorage.setItem(CHAVE_CONFIG, JSON.stringify(novo));
+      } catch {}
+      return novo;
+    });
+  }
 
   const grupos = useMemo(() => agruparMarcacoes(estadoParaMarcacoes(estado)), [estado]);
   const orc = useMemo(() => orcamento(grupos, precos), [grupos, precos]);
@@ -130,14 +176,27 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
     }
     reconhecedor.current = r;
     let final = "";
+    let interino = "";
+    let silencio: ReturnType<typeof setTimeout> | undefined;
+    // Só considera que terminou depois de X segundos sem falar nada novo.
+    const esperarSilencio = () => {
+      if (silencio) clearTimeout(silencio);
+      silencio = setTimeout(() => {
+        try {
+          r.stop();
+        } catch {}
+      }, ref.current.config.pausa);
+    };
     r.onresult = (ev: any) => {
-      let interino = "";
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      final = "";
+      interino = "";
+      for (let i = 0; i < ev.results.length; i++) {
         const t = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) final += t;
+        if (ev.results[i].isFinal) final += t + " ";
         else interino += t;
       }
-      setParcial(final || interino);
+      setParcial((final + interino).trim());
+      esperarSilencio();
     };
     let erro = "";
     r.onerror = (ev: any) => {
@@ -145,9 +204,10 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
       if (ev.error === "not-allowed" || ev.error === "service-not-allowed") setSemMicrofone(true);
     };
     r.onend = () => {
+      if (silencio) clearTimeout(silencio);
       setParcial("");
       if (!ativo.current) return;
-      const ouvido = final.trim();
+      const ouvido = (final + interino).trim();
       if (ouvido && ehEco(ouvido, ultimaFala.current)) {
         // captou a voz do próprio assistente: descarta e escuta de novo
         setAviso("Captei a minha própria voz e ignorei. Se acontecer de novo, use fone de ouvido ou desligue a voz do assistente.");
@@ -187,11 +247,10 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
         return;
       }
       sintese.cancel();
-      const u = new SpeechSynthesisUtterance(frase);
-      u.lang = "pt-BR";
-      const voz = sintese.getVoices().find((v) => v.lang?.toLowerCase().startsWith("pt-br")) || sintese.getVoices().find((v) => v.lang?.toLowerCase().startsWith("pt"));
-      if (voz) u.voice = voz;
-      u.rate = 1.05;
+      const { config: cfg } = ref.current;
+      const voz = escolherVoz(sintese.getVoices(), cfg.voz);
+      // Fala frase por frase: algumas vozes online cortam textos longos.
+      const pedacos = frase.match(/[^.!?]+[.!?]*/g)?.map((x) => x.trim()).filter(Boolean) ?? [frase];
       let terminou = false;
       const fim = () => {
         if (terminou) return;
@@ -206,18 +265,27 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
           else setStatus("parado");
         }, 600);
       };
-      u.onend = fim;
-      u.onerror = fim;
+      pedacos.forEach((p, i) => {
+        const u = new SpeechSynthesisUtterance(p);
+        u.lang = "pt-BR";
+        if (voz) u.voice = voz;
+        u.rate = cfg.velocidade;
+        u.pitch = 1;
+        if (i === pedacos.length - 1) {
+          u.onend = fim;
+          u.onerror = fim;
+        }
+        sintese.speak(u);
+      });
       setStatus("falando");
-      sintese.speak(u);
       // alguns celulares não disparam onend: garante que segue
-      setTimeout(fim, 4000 + frase.length * 110);
+      setTimeout(fim, 4000 + (frase.length * 110) / cfg.velocidade);
     },
     [ouvir]
   );
 
   function resumoFalado(e: EstadoVoz) {
-    const partes = [`Paciente ${e.paciente || "sem nome"}.`];
+    const partes = [`Então ficou assim: paciente ${e.paciente || "sem nome"}.`];
     for (const t of e.trabalhos) partes.push(`${t.servico.split(SEPARADOR).join(", ")}, ${listaDentes(t.dentes)}${t.retrabalho ? ", retrabalho" : ""}.`);
     if (e.cor) partes.push(`Cor ${e.cor}.`);
     if (e.prazo) partes.push(`Prazo ${dataFalada(e.prazo)}.`);
@@ -231,8 +299,9 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
 
   function irPara(proxima: EtapaVoz, e: EstadoVoz, prefixo = "") {
     setEtapa(proxima);
-    const p = proxima === "resumo" ? `${resumoFalado(e)} ${PERGUNTA.resumo}` : PERGUNTA[proxima];
-    setPergunta(PERGUNTA[proxima]);
+    const q = sortearPergunta(proxima);
+    const p = proxima === "resumo" ? `${resumoFalado(e)} ${q}` : q;
+    setPergunta(q);
     falar(prefixo ? `${prefixo} ${p}` : p);
   }
 
@@ -276,7 +345,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
       const novo = j.estado;
       setEstado(novo);
       if (et === "resumo" && j.confirmado) {
-        falar("Perfeito! Preenchi a ordem de serviço. Agora anexe os arquivos e toque em enviar.", "nada");
+        falar("Fechou! Preenchi a OS pra você. Agora é só anexar os arquivos e enviar.", "nada");
         onAplicar(novo);
         return;
       }
@@ -325,7 +394,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
           : "from-zinc-600 to-zinc-800";
 
   const rotuloStatus =
-    status === "ouvindo" ? "Ouvindo… pode falar" : status === "falando" ? "Falando…" : status === "pensando" ? "Entendendo…" : historico.length ? "Toque no microfone para responder" : "Toque em comecar";
+    status === "ouvindo" ? "Ouvindo… pode falar" : status === "falando" ? "Falando…" : status === "pensando" ? "Entendendo…" : historico.length ? "Toque no microfone para responder" : "Toque em começar";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-label="Assistente por voz">
@@ -336,6 +405,9 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
             <p className="text-sm text-zinc-400">Responda falando. No fim eu leio o resumo para você confirmar.</p>
           </div>
           <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setAjustesAbertos((a) => !a)} className="gc-chip" title="Escolher voz, velocidade e tempo de pausa">
+              Ajustes
+            </button>
             <button type="button" onClick={() => setMudo((m) => !m)} className="gc-chip" title="Ligar/desligar a voz do assistente">
               {mudo ? "Voz desligada" : "Voz ligada"}
             </button>
@@ -344,6 +416,60 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
             </button>
           </div>
         </div>
+
+        {ajustesAbertos && (
+          <div className="grid gap-4 border-b border-white/5 bg-white/[0.02] px-5 py-4 sm:grid-cols-3">
+            <label className="flex flex-col gap-1.5 text-xs text-zinc-400">
+              Voz do assistente
+              <select className="gc-input py-2 text-sm" value={config.voz || escolherVoz(vozes, "")?.name || ""} onChange={(e) => mudarConfig({ voz: e.target.value })}>
+                {vozes.length === 0 && <option value="">Padrão do navegador</option>}
+                {vozes.map((v) => (
+                  <option key={v.name} value={v.name}>
+                    {v.name.replace(/ - Portuguese \((Brazil|Portugal)\)/, "")}
+                    {v.lang.toLowerCase().includes("pt") && !v.lang.toLowerCase().includes("br") ? " (Portugal)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs text-zinc-400">
+              Velocidade da fala: {config.velocidade.toFixed(1)}x
+              <input type="range" min={0.8} max={1.4} step={0.05} value={config.velocidade} onChange={(e) => mudarConfig({ velocidade: Number(e.target.value) })} className="mt-2 accent-[#e0649c]" />
+            </label>
+            <div className="flex flex-col gap-1.5 text-xs text-zinc-400">
+              Esperar antes de seguir
+              <div className="gc-tabs mt-0.5">
+                {[
+                  [1200, "Rápido"],
+                  [2000, "Normal"],
+                  [3200, "Calmo"],
+                ].map(([ms, nome]) => (
+                  <button key={ms} type="button" onClick={() => mudarConfig({ pausa: ms as number })} className={`gc-tab flex-1 !px-2 text-xs ${config.pausa === ms ? "gc-tab-ativa" : ""}`}>
+                    {nome}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 sm:col-span-3">
+              <button
+                type="button"
+                className="gc-btn gc-btn-secundario"
+                onClick={() => {
+                  const sintese = window.speechSynthesis;
+                  sintese.cancel();
+                  const u = new SpeechSynthesisUtterance("Oi! Essa é a minha voz. Bora montar sua OS?");
+                  u.lang = "pt-BR";
+                  const v = escolherVoz(sintese.getVoices(), config.voz);
+                  if (v) u.voice = v;
+                  u.rate = config.velocidade;
+                  sintese.speak(u);
+                }}
+              >
+                Testar voz
+              </button>
+              <p className="text-xs text-zinc-500">As vozes disponíveis dependem do navegador. No Edge aparecem vozes mais naturais (“Online (Natural)”).</p>
+            </div>
+          </div>
+        )}
 
         <div className="grid min-h-0 flex-1 gap-0 md:grid-cols-[1.4fr_1fr]">
           <div className="flex min-h-0 flex-col">
