@@ -64,8 +64,6 @@ function ehEco(ouvido: string, falado: string) {
   return iguais / a.length >= 0.6;
 }
 
-const CHAVE_CONFIG = "gc-voz-config";
-
 /** Voz escolhida pelo dentista, ou a mais natural disponível em português do Brasil. */
 function escolherVoz(todas: SpeechSynthesisVoice[], nome: string) {
   const pt = todas.filter((v) => v.lang?.toLowerCase().startsWith("pt"));
@@ -101,8 +99,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
   const [etapa, setEtapa] = useState<EtapaVoz>("paciente");
   const [pergunta, setPergunta] = useState<string>(() => sortearPergunta("paciente"));
   const [config, setConfig] = useState<ConfigVoz>(CONFIG_PADRAO);
-  const [vozes, setVozes] = useState<SpeechSynthesisVoice[]>([]);
-  const [ajustesAbertos, setAjustesAbertos] = useState(false);
+
   const [status, setStatus] = useState<"falando" | "ouvindo" | "pensando" | "parado">("parado");
   const [parcial, setParcial] = useState("");
   const [texto, setTexto] = useState("");
@@ -115,32 +112,21 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
   const ativo = useRef(true);
   const fimDaLista = useRef<HTMLDivElement>(null);
   // refs para os callbacks da voz enxergarem o valor atual
-  const ref = useRef({ estado, etapa, pergunta, mudo, config, vozes });
-  ref.current = { estado, etapa, pergunta, mudo, config, vozes };
+  const ref = useRef({ estado, etapa, pergunta, mudo, config });
+  ref.current = { estado, etapa, pergunta, mudo, config };
 
-  // Vozes em português disponíveis neste navegador + ajustes salvos do dentista.
+  // Ajustes definidos pelo laboratório (/dashboard/voz): voz premium, velocidade e pausa.
+  const premium = useRef(false);
+  const audioAtual = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
-    const sintese = typeof window !== "undefined" ? window.speechSynthesis : undefined;
-    if (!sintese) return;
-    const carregar = () => setVozes(sintese.getVoices().filter((v) => v.lang?.toLowerCase().startsWith("pt")));
-    carregar();
-    sintese.addEventListener?.("voiceschanged", carregar);
-    try {
-      const salvo = localStorage.getItem(CHAVE_CONFIG);
-      if (salvo) setConfig({ ...CONFIG_PADRAO, ...JSON.parse(salvo) });
-    } catch {}
-    return () => sintese.removeEventListener?.("voiceschanged", carregar);
+    fetch("/api/voz/config", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        premium.current = !!j.premium;
+        setConfig({ ...CONFIG_PADRAO, velocidade: Number(j.velocidade) || 1, pausa: Number(j.pausa) || 2000 });
+      })
+      .catch(() => {});
   }, []);
-
-  function mudarConfig(c: Partial<ConfigVoz>) {
-    setConfig((atual) => {
-      const novo = { ...atual, ...c };
-      try {
-        localStorage.setItem(CHAVE_CONFIG, JSON.stringify(novo));
-      } catch {}
-      return novo;
-    });
-  }
 
   const grupos = useMemo(() => agruparMarcacoes(estadoParaMarcacoes(estado)), [estado]);
   const orc = useMemo(() => orcamento(grupos, precos), [grupos, precos]);
@@ -155,6 +141,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
     try {
       reconhecedor.current?.abort();
     } catch {}
+    audioAtual.current?.pause();
     if (typeof window !== "undefined") window.speechSynthesis?.cancel();
   }, []);
 
@@ -233,13 +220,59 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const semPremium = useRef(false);
+
+  // Voz premium (ElevenLabs), gerada no servidor. Se falhar, cai para a voz do navegador.
+  async function falarPremium(frase: string, depois: "ouvir" | "nada") {
+    setStatus("falando");
+    const seguir = () =>
+      setTimeout(() => {
+        if (!ativo.current) return;
+        if (depois === "ouvir") ouvir();
+        else setStatus("parado");
+      }, 500);
+    try {
+      const r = await fetch("/api/voz/falar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ texto: frase }),
+      });
+      if (!r.ok) throw new Error(String(r.status));
+      const url = URL.createObjectURL(await r.blob());
+      if (!ativo.current) return;
+      const a = new Audio(url);
+      audioAtual.current = a;
+      let foi = false;
+      const fim = () => {
+        if (foi) return;
+        foi = true;
+        URL.revokeObjectURL(url);
+        seguir();
+      };
+      a.onended = fim;
+      a.onerror = fim;
+      await a.play();
+    } catch {
+      // sem a voz premium agora: usa a do navegador nesta e nas próximas falas
+      premium.current = false;
+      semPremium.current = true;
+      falarRef.current(frase, depois, true);
+    }
+  }
+  const falarRef = useRef<(f: string, d: "ouvir" | "nada", jaNoHistorico?: boolean) => void>(() => {});
+
   const falar = useCallback(
-    (frase: string, depois: "ouvir" | "nada" = "ouvir") => {
-      setHistorico((h) => [...h, { de: "assistente", texto: frase }]);
+    (frase: string, depois: "ouvir" | "nada" = "ouvir", jaNoHistorico = false) => {
+      if (!jaNoHistorico) setHistorico((h) => [...h, { de: "assistente", texto: frase }]);
       ultimaFala.current = frase;
       try {
         reconhecedor.current?.abort();
       } catch {}
+      audioAtual.current?.pause();
+      if (!ref.current.mudo && premium.current) {
+        falarPremium(frase, depois);
+        return;
+      }
       const sintese = typeof window !== "undefined" ? window.speechSynthesis : undefined;
       if (ref.current.mudo || !sintese) {
         if (depois === "ouvir") ouvir();
@@ -248,7 +281,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
       }
       sintese.cancel();
       const { config: cfg } = ref.current;
-      const voz = escolherVoz(sintese.getVoices(), cfg.voz);
+      const voz = escolherVoz(sintese.getVoices(), "");
       // Fala frase por frase: algumas vozes online cortam textos longos.
       const pedacos = frase.match(/[^.!?]+[.!?]*/g)?.map((x) => x.trim()).filter(Boolean) ?? [frase];
       let terminou = false;
@@ -281,8 +314,10 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
       // alguns celulares não disparam onend: garante que segue
       setTimeout(fim, 4000 + (frase.length * 110) / cfg.velocidade);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [ouvir]
   );
+  falarRef.current = falar;
 
   function resumoFalado(e: EstadoVoz) {
     const partes = [`Então ficou assim: paciente ${e.paciente || "sem nome"}.`];
@@ -405,9 +440,6 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
             <p className="text-sm text-zinc-400">Responda falando. No fim eu leio o resumo para você confirmar.</p>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setAjustesAbertos((a) => !a)} className="gc-chip" title="Escolher voz, velocidade e tempo de pausa">
-              Ajustes
-            </button>
             <button type="button" onClick={() => setMudo((m) => !m)} className="gc-chip" title="Ligar/desligar a voz do assistente">
               {mudo ? "Voz desligada" : "Voz ligada"}
             </button>
@@ -416,60 +448,6 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
             </button>
           </div>
         </div>
-
-        {ajustesAbertos && (
-          <div className="grid gap-4 border-b border-white/5 bg-white/[0.02] px-5 py-4 sm:grid-cols-3">
-            <label className="flex flex-col gap-1.5 text-xs text-zinc-400">
-              Voz do assistente
-              <select className="gc-input py-2 text-sm" value={config.voz || escolherVoz(vozes, "")?.name || ""} onChange={(e) => mudarConfig({ voz: e.target.value })}>
-                {vozes.length === 0 && <option value="">Padrão do navegador</option>}
-                {vozes.map((v) => (
-                  <option key={v.name} value={v.name}>
-                    {v.name.replace(/ - Portuguese \((Brazil|Portugal)\)/, "")}
-                    {v.lang.toLowerCase().includes("pt") && !v.lang.toLowerCase().includes("br") ? " (Portugal)" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs text-zinc-400">
-              Velocidade da fala: {config.velocidade.toFixed(1)}x
-              <input type="range" min={0.8} max={1.4} step={0.05} value={config.velocidade} onChange={(e) => mudarConfig({ velocidade: Number(e.target.value) })} className="mt-2 accent-[#e0649c]" />
-            </label>
-            <div className="flex flex-col gap-1.5 text-xs text-zinc-400">
-              Esperar antes de seguir
-              <div className="gc-tabs mt-0.5">
-                {[
-                  [1200, "Rápido"],
-                  [2000, "Normal"],
-                  [3200, "Calmo"],
-                ].map(([ms, nome]) => (
-                  <button key={ms} type="button" onClick={() => mudarConfig({ pausa: ms as number })} className={`gc-tab flex-1 !px-2 text-xs ${config.pausa === ms ? "gc-tab-ativa" : ""}`}>
-                    {nome}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 sm:col-span-3">
-              <button
-                type="button"
-                className="gc-btn gc-btn-secundario"
-                onClick={() => {
-                  const sintese = window.speechSynthesis;
-                  sintese.cancel();
-                  const u = new SpeechSynthesisUtterance("Oi! Essa é a minha voz. Bora montar sua OS?");
-                  u.lang = "pt-BR";
-                  const v = escolherVoz(sintese.getVoices(), config.voz);
-                  if (v) u.voice = v;
-                  u.rate = config.velocidade;
-                  sintese.speak(u);
-                }}
-              >
-                Testar voz
-              </button>
-              <p className="text-xs text-zinc-500">As vozes disponíveis dependem do navegador. No Edge aparecem vozes mais naturais (“Online (Natural)”).</p>
-            </div>
-          </div>
-        )}
 
         <div className="grid min-h-0 flex-1 gap-0 md:grid-cols-[1.4fr_1fr]">
           <div className="flex min-h-0 flex-col">
