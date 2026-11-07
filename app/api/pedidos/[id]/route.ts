@@ -35,6 +35,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     atualizacao.prazo_desejado = v;
   }
 
+  if (typeof body.aguardando_arquivos === "boolean") {
+    atualizacao.aguardando_arquivos = body.aguardando_arquivos;
+  }
+
   if (typeof body.notas_internas === "string") {
     atualizacao.notas_internas = body.notas_internas;
   }
