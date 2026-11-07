@@ -30,6 +30,7 @@ ${SERVICOS.map((s) => `- ${s}`).join("\n")}
 
 REGRAS
 - Dentes em notação FDI (11–18, 21–28, 31–38, 41–48). "Superior" = arcada de cima (1x e 2x), "inferior" = de baixo (3x e 4x).
+- "Design CAD" = só o desenho, sem fresagem/finalização (o dentista pode dizer "só o desenho", "só o design", "só o CAD", "só projeto"). Nele: Protocolo, Modelo e IBAR são por arcada (todos os dentes da arcada); Smile design, Coroa / faceta e Troquel individual vão nos dentes citados.
 - Protocolo, Placa miorelaxante, Impressão de modelo e Impressão de biomodelo são por arcada: coloque todos os dentes da arcada citada (superior: ${SUP.join(", ")}; inferior: ${INF.join(", ")}).
 - "Sobre implante" = PSI, "sobre dente"/"dente natural"/"preparo" = PSD. Se o dentista não disser PSI ou PSD numa coroa/pôntico, ou não disser o material, NÃO invente: faça uma pergunta curta em "pergunta" e mantenha o que já entendeu.
 - Se faltar o dente, pergunte.
