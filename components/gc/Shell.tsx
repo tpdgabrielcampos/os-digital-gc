@@ -48,18 +48,12 @@ export default function Shell({
     <div className="gc-app min-h-screen text-slate-200">
       <div className="gc-ceu" aria-hidden />
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-white/5 bg-black/70 px-4 py-6 backdrop-blur lg:flex">
-        <Link href={menu[0].href} className="flex items-center gap-3 px-2">
+        <Link href={menu[0].href} className="flex justify-center px-2 pt-2" title="Gabriel Campos">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-gabriel-campos.png" alt="GC" className="h-11 w-auto invert" />
-          <span className="leading-tight">
-            <span className="block text-[15px] font-bold text-white">OS digital GC</span>
-            <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-              Gabriel Campos
-            </span>
-          </span>
+          <img src="/logo-gabriel-campos.png" alt="Gabriel Campos" className="h-28 w-auto invert" />
         </Link>
 
-        <nav className="mt-8 flex flex-col gap-1">
+        <nav className="mt-10 flex flex-col gap-1">
           {menu.map((m) => {
             const marcado = m.href === ativo;
             return (
