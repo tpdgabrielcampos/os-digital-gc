@@ -149,6 +149,22 @@ export function unidadeDoServico(caminho: string[]): Unidade {
   return POR_ARCADA.has(caminho[0]) ? "arcada" : "elemento";
 }
 
+/** Trabalho cerâmico: zircônia ou dissilicato (coroa, faceta, pôntico, inlay/onlay, protocolo de zircônia). */
+export function ehCeramico(caminho: string[]): boolean {
+  return caminho.some((p) => /zirc[oô]nia|dissilicato/i.test(p));
+}
+
+/**
+ * Prazo mínimo (dias corridos a partir de hoje) para cada serviço:
+ * Design CAD de IBAR = 1 dia; demais itens do Design CAD (smile, coroa/faceta, protocolo) = 2 dias;
+ * trabalhos cerâmicos (zircônia/dissilicato) = 7 dias; demais trabalhos de produção = 10 dias.
+ */
+export function prazoMinimoDias(caminho: string[]): number {
+  if (caminho[0] === "Design CAD") return caminho[1]?.startsWith("IBAR") ? 1 : 2;
+  if (ehCeramico(caminho)) return 7;
+  return 10;
+}
+
 /** Quantidade cobrada: nº de dentes, ou nº de arcadas (superior/inferior) envolvidas. */
 export function quantidadeCobrada(caminho: string[], dentes: string[]): number {
   const u = unidadeDoServico(caminho);
