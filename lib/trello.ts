@@ -20,8 +20,12 @@ const LISTA_FIXA: Record<StatusPedido, string | undefined> = {
   entregue: process.env.TRELLO_LIST_ENTREGUE,
 };
 
+// O Trello foi DESLIGADO: o controle das etapas agora é só pelo Quadro do painel
+// (/dashboard/quadro). Para religar um dia, troque false por true.
+const TRELLO_LIGADO = false;
+
 function trelloConfigurado() {
-  return Boolean(TRELLO_API_KEY && TRELLO_API_TOKEN);
+  return TRELLO_LIGADO && Boolean(TRELLO_API_KEY && TRELLO_API_TOKEN);
 }
 
 function authParams() {
