@@ -63,6 +63,18 @@ export const CATALOGO: NoCatalogo[] = [
   },
   { nome: "Impressão de modelo" },
   { nome: "Impressão de biomodelo" },
+  {
+    nome: "Design CAD",
+    descricao: "Só o desenho — sem fresagem nem finalização",
+    filhos: [
+      { nome: "Smile design" },
+      { nome: "Coroa / faceta" },
+      { nome: "Protocolo", descricao: "Marca a arcada completa" },
+      { nome: "Modelo" },
+      { nome: "Troquel individual" },
+      { nome: "IBAR" },
+    ],
+  },
 ];
 
 /** Separador usado para juntar o caminho num texto só. */
@@ -120,7 +132,11 @@ export type Unidade = "elemento" | "arcada";
 
 const POR_ARCADA = new Set(["Protocolo", "Placa miorelaxante", "Impressão de modelo", "Impressão de biomodelo"]);
 
+/** Design CAD (só desenho): protocolo, modelo e IBAR são por arcada; o resto por peça. */
+const DESIGN_POR_ARCADA = new Set(["Protocolo", "Modelo", "IBAR"]);
+
 export function unidadeDoServico(caminho: string[]): Unidade {
+  if (caminho[0] === "Design CAD") return DESIGN_POR_ARCADA.has(caminho[1]) ? "arcada" : "elemento";
   return POR_ARCADA.has(caminho[0]) ? "arcada" : "elemento";
 }
 
