@@ -157,12 +157,11 @@ export function ehCeramico(caminho: string[]): boolean {
 /**
  * Prazo mínimo (dias corridos a partir de hoje) para cada serviço:
  * Design CAD de IBAR = 1 dia; demais itens do Design CAD (smile, coroa/faceta, protocolo) = 2 dias;
- * trabalhos cerâmicos (zircônia/dissilicato) = 7 dias; demais trabalhos de produção = 10 dias.
+ * todos os trabalhos de produção = 7 dias (independente da quantidade de peças).
  */
 export function prazoMinimoDias(caminho: string[]): number {
   if (caminho[0] === "Design CAD") return caminho[1]?.startsWith("IBAR") ? 1 : 2;
-  if (ehCeramico(caminho)) return 7;
-  return 10;
+  return 7;
 }
 
 /** Quantidade cobrada: nº de dentes, ou nº de arcadas (superior/inferior) envolvidas. */
