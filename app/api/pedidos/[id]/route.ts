@@ -27,6 +27,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     atualizacao.status_updated_at = new Date().toISOString();
   }
 
+  if ("prazo_desejado" in body) {
+    const v = body.prazo_desejado;
+    if (v !== null && !(typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v))) {
+      return NextResponse.json({ ok: false, erro: "Data inválida" }, { status: 400 });
+    }
+    atualizacao.prazo_desejado = v;
+  }
+
   if (typeof body.notas_internas === "string") {
     atualizacao.notas_internas = body.notas_internas;
   }
