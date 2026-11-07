@@ -11,6 +11,7 @@ export interface ItemMenu {
 
 export const MENU_LAB: ItemMenu[] = [
   { href: "/dashboard", rotulo: "Visão geral", icone: I.casa },
+  { href: "/dashboard/quadro", rotulo: "Quadro de etapas", icone: I.grafico },
   { href: "/dashboard/ordens", rotulo: "Ordens de serviço", icone: I.pasta },
   { href: "/dashboard/dentistas", rotulo: "Dentistas", icone: I.pessoas },
   { href: "/dashboard/precos", rotulo: "Tabelas de preço", icone: I.etiqueta },
@@ -33,6 +34,7 @@ export default function Shell({
   papel,
   rodape,
   sair,
+  largo,
   children,
 }: {
   menu: ItemMenu[];
@@ -42,6 +44,8 @@ export default function Shell({
   rodape?: ReactNode;
   /** Botão de sair (componente cliente). */
   sair?: ReactNode;
+  /** Usa a largura toda da tela (quadro de etapas). */
+  largo?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -111,7 +115,7 @@ export default function Shell({
       </header>
 
       <main className="relative z-10 px-4 py-6 sm:px-6 lg:ml-64 lg:px-8 lg:py-8">
-        <div className="mx-auto flex min-w-0 max-w-6xl flex-col gap-6">{children}</div>
+        <div className={`mx-auto flex min-w-0 flex-col gap-6 ${largo ? "max-w-none" : "max-w-6xl"}`}>{children}</div>
       </main>
     </div>
   );
