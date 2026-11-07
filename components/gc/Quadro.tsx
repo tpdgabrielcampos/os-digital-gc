@@ -21,6 +21,8 @@ export interface CartaoOS {
   prazo_desejado: string | null;
   arquivos: number;
   urgente?: boolean;
+  aguardando?: boolean;
+  atualizado_dentista?: string | null;
 }
 
 const COR_TOPO: Record<StatusPedido, string> = {
@@ -290,6 +292,10 @@ function Cartao({ c, fantasma, onPointerDown }: { c: CartaoOS; fantasma?: boolea
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
         {c.urgente && !entregue && <span className="rounded-md bg-rose-600 px-1.5 py-0.5 text-white">⚠️ URGENTE</span>}
+        {c.aguardando && !entregue && <span className="rounded-md bg-amber-500 px-1.5 py-0.5 text-black">⏳ Aguardando arquivos</span>}
+        {!c.aguardando && !entregue && c.atualizado_dentista && diasDesde(c.atualizado_dentista) <= 3 && (
+          <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-emerald-300">📎 Novidades {ddmm(c.atualizado_dentista)}</span>
+        )}
         {entregue ? (
           <span className="rounded-md border border-emerald-400/40 px-1.5 py-0.5 text-emerald-300">Entregue {ddmm(c.status_updated_at)}</span>
         ) : (
