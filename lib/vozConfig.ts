@@ -18,10 +18,10 @@ export const CONFIG_ASSISTENTE_PADRAO: ConfigAssistente = {
   provedor: "navegador",
   voz_id: null,
   voz_nome: null,
-  modelo: "eleven_multilingual_v2",
+  modelo: "eleven_v4",
   velocidade: 1,
-  estabilidade: 0.45,
-  estilo: 0.3,
+  estabilidade: 0.5,
+  estilo: 0,
   pausa: 2000,
 };
 
@@ -68,7 +68,7 @@ export async function gerarAudio(texto: string, c: ConfigAssistente): Promise<{ 
       model_id: c.modelo,
       voice_settings: {
         stability: c.estabilidade,
-        similarity_boost: 0.8,
+        similarity_boost: 0.75, // igual ao padrão do site da ElevenLabs
         style: c.estilo,
         use_speaker_boost: true,
         speed: Math.min(1.2, Math.max(0.7, c.velocidade)),
