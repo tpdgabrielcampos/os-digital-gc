@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { SEPARADOR, opcoesDepoisDe } from "@/lib/catalogo";
 
 // Odontograma em notação FDI onde cada dente recebe um trabalho do catálogo.
@@ -20,6 +21,7 @@ export const COR_CATEGORIA: Record<string, string> = {
   "Placa miorelaxante": "border-rose-700 bg-rose-500 text-white",
   "Impressão de modelo": "border-slate-600 bg-slate-500 text-white",
   "Impressão de biomodelo": "border-teal-700 bg-teal-500 text-white",
+  "Design CAD": "border-fuchsia-700 bg-fuchsia-500 text-white",
 };
 
 const SUP_DIR = ["18", "17", "16", "15", "14", "13", "12", "11"];
@@ -37,7 +39,8 @@ function expandirArcadas(dentes: string[]): string[] {
   return [...res];
 }
 
-const ehProtocolo = (c?: string[]) => c?.[0] === "Protocolo";
+// Protocolo (produção) e Protocolo do Design CAD marcam a arcada inteira.
+const ehProtocolo = (c?: string[]) => c?.[0] === "Protocolo" || (c?.[0] === "Design CAD" && c?.[1] === "Protocolo");
 
 /** dente -> caminho escolhido no catálogo (ex: ["PSD", "Coroa", "Dissilicato"]) */
 export type Marcacoes = Record<string, string[]>;
@@ -189,8 +192,13 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange }: Props) {
         )}
       </div>
 
-      {janela && (
+      {janela &&
+        typeof document !== "undefined" &&
+        // Portal no <body>: o painel em volta tem efeito de vidro (backdrop-blur), que prende
+        // elementos "fixed" dentro dele e cortava a janela quando a lista de trabalhos era longa.
+        createPortal(
         <div
+          style={{ fontFamily: '"Sora", ui-sans-serif, system-ui, sans-serif' }}
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           onClick={fecharJanela}
         >
@@ -286,7 +294,7 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange }: Props) {
             </div>
           </div>
         </div>
-      )}
+        , document.body)}
     </div>
   );
 }
