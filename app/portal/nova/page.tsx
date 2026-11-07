@@ -6,7 +6,7 @@ import PortalShell, { useDentista } from "@/components/gc/PortalShell";
 import OdontogramaTrabalhos, { COR_CATEGORIA, type Marcacoes } from "@/components/OdontogramaTrabalhos";
 import { Botao, I, PageHeader, Panel } from "@/components/gc/ui";
 import { supabaseBrowser } from "@/lib/supabaseClient";
-import { ehPontico, materialDoCaminho, pedeCor } from "@/lib/catalogo";
+import { ehPontico, materialDoCaminho, nomeUnidade, pedeCor } from "@/lib/catalogo";
 import { ORDEM_DENTES, agruparMarcacoes } from "@/lib/odontograma";
 import { orcamento } from "@/lib/precos";
 import { MAX_ARQUIVO, brl, numeroOS, tamanhoLegivel } from "@/lib/gc";
@@ -431,7 +431,7 @@ function NovaOS() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-white">{i.chave}</p>
                       <p className="text-xs text-zinc-400">
-                        {i.quantidade} {i.unidade === "arcada" ? (i.quantidade > 1 ? "arcadas" : "arcada") : i.quantidade > 1 ? "elementos" : "elemento"}
+                        {i.quantidade} {nomeUnidade(i.unidade, i.quantidade)}
                         {i.unitario !== null && ` × ${brl(i.unitario)}`}
                       </p>
                     </div>
