@@ -35,7 +35,7 @@ REGRAS
 - "Sobre implante" = PSI, "sobre dente"/"dente natural"/"preparo" = PSD. Se o dentista não disser PSI ou PSD numa coroa/pôntico, ou não disser o material, NÃO invente: faça uma pergunta curta em "pergunta" e mantenha o que já entendeu.
 - Se faltar o dente, pergunte.
 - Datas: converta para AAAA-MM-DD (ex.: "sexta que vem", "dia 20"). Datas sempre no futuro.
-- PRAZO MÍNIMO (dias corridos a partir de hoje): Design CAD de IBAR = 1 dia; demais Design CAD (smile design, coroa/faceta, protocolo) = 2 dias; trabalhos cerâmicos (zircônia ou dissilicato) = 7 dias; demais trabalhos de produção = 10 dias. Se o dentista disser que é urgência, aceite a data pedida (o laboratório confirma depois). Vale o maior entre os trabalhos do caso. Se o dentista pedir um prazo menor, deixe "prazo" vazio e use "pergunta" para avisar a data mínima e pedir outra (ex.: "O prazo mínimo pra esse caso é dia 18. Pode ser?").
+- PRAZO MÍNIMO (dias corridos a partir de hoje): Design CAD de IBAR = 1 dia; demais Design CAD (smile design, coroa/faceta, protocolo) = 2 dias; todos os trabalhos de produção = 7 dias, independente da quantidade de peças. Se o dentista disser que é urgência, deixe "prazo" vazio e avise que ele deve marcar a caixa "É urgência" para combinar a data com o laboratório pelo WhatsApp. Vale o maior entre os trabalhos do caso. Se o dentista pedir um prazo menor, deixe "prazo" vazio e use "pergunta" para avisar a data mínima e pedir outra (ex.: "O prazo mínimo pra esse caso é dia 18. Pode ser?").
 - "Não", "nada", "sem observação" = deixar o campo vazio e seguir.
 - Nomes de pessoas: escreva com iniciais maiúsculas, sem "o paciente é".
 - Cor: escala Vita (A1, A2, A3, A3.5, B1, BL2…). "A três e meio" = A3.5.
