@@ -10,6 +10,7 @@ import { ehPontico, materialDoCaminho, nomeUnidade, pedeCor, prazoMinimoDias } f
 import { ORDEM_DENTES, agruparMarcacoes } from "@/lib/odontograma";
 import { orcamento } from "@/lib/precos";
 import { MAX_ARQUIVO, brl, numeroOS, tamanhoLegivel } from "@/lib/gc";
+import { ACEITOS, acaoOS, enviarArquivoOS, mensagemDeErro } from "@/lib/arquivosOS";
 import AssistenteVoz, { estadoParaMarcacoes } from "@/components/gc/AssistenteVoz";
 import type { EstadoVoz } from "@/lib/voz";
 
@@ -32,7 +33,6 @@ export default function NovaOSPage() {
 }
 
 const SEPARADOR_TRABALHOS = " + ";
-const ACEITOS = ".stl,.ply,.obj,.dcm,.zip,.jpg,.jpeg,.png,.heic,.pdf";
 
 type EstadoArquivo = "fila" | "enviando" | "enviado" | "erro";
 interface Arq {
@@ -42,13 +42,6 @@ interface Arq {
   erro?: string;
 }
 
-function nomeSeguro(nome: string) {
-  return nome
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "_")
-    .slice(-120);
-}
 
 /** Data (AAAA-MM-DD, no fuso do aparelho) daqui a N dias corridos. */
 function dataDaquiA(dias: number) {
@@ -59,17 +52,13 @@ function dataDaquiA(dias: number) {
 
 const dataBRCurta = (iso: string) => iso.split("-").reverse().join("/");
 
-function mensagemDeErro(err: unknown) {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === "object" && "message" in err) return String((err as { message: unknown }).message);
-  return String(err);
-}
 
 function NovaOS() {
   const { sessao, dentista, nomeTabela } = useDentista();
   const [paciente, setPaciente] = useState("");
   const [prazo, setPrazo] = useState("");
   const [urgente, setUrgente] = useState(false);
+  const [arquivosDepois, setArquivosDepois] = useState(false);
   const [instalacao, setInstalacao] = useState("");
   const [corCaso, setCorCaso] = useState("");
   const [observacoes, setObservacoes] = useState("");
@@ -79,7 +68,7 @@ function NovaOS() {
   const [precos, setPrecos] = useState<Record<string, number>>({});
   const [estado, setEstado] = useState<"editando" | "enviando" | "pronto">("editando");
   const [erro, setErro] = useState<string | null>(null);
-  const [resultado, setResultado] = useState<{ numero: number | null; falhas: number; urgente: boolean } | null>(null);
+  const [resultado, setResultado] = useState<{ id: string; numero: number | null; falhas: number; urgente: boolean; aguardando: boolean } | null>(null);
   const [arrastando, setArrastando] = useState(false);
   const inputArquivo = useRef<HTMLInputElement>(null);
   const painelArquivos = useRef<HTMLDivElement>(null);
@@ -224,10 +213,14 @@ function NovaOS() {
           valor_estimado: temPrecos ? orc.total : null,
       };
       const inserir = (d: Record<string, unknown>) => supabaseBrowser.from("pedidos").insert(d).select("id, numero").single();
-      let { data: pedido, error } = await inserir(urgente ? { ...dadosOS, urgente: true } : dadosOS);
-      if (error && urgente && /urgente/i.test(error.message)) {
-        // banco ainda sem a coluna "urgente": marca a urgência nas observações
-        ({ data: pedido, error } = await inserir({ ...dadosOS, observacoes: `⚠️ URGENTE — confirmar data. ${dadosOS.observacoes ?? ""}`.trim() }));
+      const extras: Record<string, unknown> = {};
+      if (urgente) extras.urgente = true;
+      if (arquivosDepois) extras.aguardando_arquivos = true;
+      let { data: pedido, error } = await inserir({ ...dadosOS, ...extras });
+      if (error && /urgente|aguardando_arquivos/i.test(error.message)) {
+        // banco ainda sem essas colunas: marca nas observações
+        const marcas = [urgente ? "⚠️ URGENTE — confirmar data." : "", arquivosDepois ? "⏳ AGUARDANDO ARQUIVOS." : ""].filter(Boolean).join(" ");
+        ({ data: pedido, error } = await inserir({ ...dadosOS, observacoes: `${marcas} ${dadosOS.observacoes ?? ""}`.trim() }));
       }
       if (error || !pedido) throw error ?? new Error("Não consegui criar a OS.");
 
@@ -235,30 +228,17 @@ function NovaOS() {
       let falhas = 0;
       for (const a of enviaveis) {
         marcarArq(a.id, { estado: "enviando" });
-        const caminho = `${dentista.id}/${pedido.id}/${Date.now()}-${nomeSeguro(a.file.name)}`;
-        const { error: eUp } = await supabaseBrowser.storage.from("arquivos-os").upload(caminho, a.file, {
-          contentType: a.file.type || "application/octet-stream",
-        });
-        if (eUp) {
+        const r = await enviarArquivoOS({ file: a.file, dentistaId: dentista.id, pedidoId: pedido.id, token: sessao.access_token });
+        if (r.ok) marcarArq(a.id, { estado: "enviado" });
+        else {
           falhas++;
-          marcarArq(a.id, { estado: "erro", erro: mensagemDeErro(eUp) });
-          continue;
+          marcarArq(a.id, { estado: "erro", erro: r.erro });
         }
-        const { data: reg } = await supabaseBrowser
-          .from("pedido_arquivos")
-          .insert({ pedido_id: pedido.id, dentista_id: dentista.id, nome: a.file.name, caminho, tamanho: a.file.size })
-          .select("id")
-          .single();
-        marcarArq(a.id, { estado: "enviado" });
-        // Cópia para o Google Drive (pasta Dentista / Paciente – OS). Roda no servidor.
-        if (reg?.id) {
-          fetch("/api/drive/copiar", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessao.access_token}` },
-            body: JSON.stringify({ arquivoId: reg.id }),
-            keepalive: true,
-          }).catch(() => {});
-        }
+      }
+      // Algum arquivo não subiu: deixa a OS aberta para ele reenviar pela tela da OS.
+      let aguardando = arquivosDepois;
+      if (falhas > 0 && !arquivosDepois) {
+        aguardando = await acaoOS(pedido.id, sessao.access_token, { acao: "pendente" }).then(() => true).catch(() => false);
       }
 
       for (const rota of ["/api/planilha/enviar-pedido"]) {
@@ -273,7 +253,7 @@ function NovaOS() {
       if (abaWhats) {
         try { abaWhats.location.href = linkUrgencia(numeroOS(pedido.numero), paciente); } catch { /* fica o botão */ }
       }
-      setResultado({ numero: pedido.numero, falhas, urgente });
+      setResultado({ id: pedido.id, numero: pedido.numero, falhas, urgente, aguardando });
       setEstado("pronto");
     } catch (err) {
       try { abaWhats?.close(); } catch { /* ok */ }
@@ -294,6 +274,21 @@ function NovaOS() {
           <p className="mt-4 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
             {resultado.falhas} arquivo(s) não subiram. Envie de novo pela tela da OS ou mande pelo WhatsApp.
           </p>
+        )}
+        {resultado.aguardando && (
+          <div className="mt-6 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-left">
+            <p className="font-semibold text-amber-200">⏳ OS aguardando arquivos</p>
+            <p className="mt-1 text-sm text-zinc-300">
+              O caso só entra em produção quando todas as informações e arquivos forem enviados. Quando tiver tudo, abra a OS e
+              anexe o que falta.
+            </p>
+            <a
+              href={`/portal/os/${resultado.id}`}
+              className="mt-3 inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-400"
+            >
+              Abrir a OS para completar
+            </a>
+          </div>
         )}
         {resultado.urgente && (
           <div className="mt-6 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-4 text-left">
@@ -459,6 +454,17 @@ function NovaOS() {
                 }}
               />
             </div>
+            <label className={`mt-4 flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm ${arquivosDepois ? "border-amber-400/50 bg-amber-500/10 text-amber-100" : "border-white/10 text-zinc-300"}`}>
+              <input type="checkbox" className="mt-1" checked={arquivosDepois} onChange={(e) => setArquivosDepois(e.target.checked)} disabled={enviando} />
+              <span>
+                <strong>⏳ Envio os arquivos depois</strong>
+                <span className="block text-xs text-zinc-400">
+                  {arquivosDepois
+                    ? "Atenção: o caso só entra em produção quando todas as informações e arquivos forem enviados. Depois é só abrir a OS em “Minhas OS” e anexar o que falta."
+                    : "Ainda não tem o escaneamento? Marque aqui e complete a OS depois, pelo celular ou computador."}
+                </span>
+              </span>
+            </label>
             {arquivos.length > 0 && (
               <div className="mt-4 flex flex-col gap-2">
                 {arquivos.map((a) => (
