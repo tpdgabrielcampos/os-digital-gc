@@ -16,7 +16,12 @@ import type { EstadoVoz } from "@/lib/voz";
 const PREF_VOZ = "gc-assistente-voz";
 
 // WhatsApp do laboratório (com DDI e DDD, só números) para confirmar casos de urgência.
-const WHATSAPP_LAB = (process.env.NEXT_PUBLIC_WHATSAPP_LAB || "").replace(/\D/g, "");
+const WHATSAPP_LAB = (process.env.NEXT_PUBLIC_WHATSAPP_LAB || "5551997031706").replace(/\D/g, "");
+
+function linkUrgencia(numero: string, paciente: string) {
+  const texto = `⚠️ URGÊNCIA — Olá, Gabriel! Acabei de enviar a OS ${numero} (paciente ${paciente}) marcada como urgência. Podemos combinar a data de entrega?`;
+  return `https://wa.me/${WHATSAPP_LAB}?text=${encodeURIComponent(texto)}`;
+}
 
 export default function NovaOSPage() {
   return (
@@ -144,7 +149,7 @@ function NovaOS() {
   // Prazo mínimo do caso = o maior prazo mínimo entre os trabalhos marcados.
   const diasMinimos = grupos.length ? Math.max(...grupos.map((g) => prazoMinimoDias(g.caminho))) : 0;
   const prazoMinimo = dataDaquiA(diasMinimos);
-  // Urgência: libera datas antes do prazo mínimo (a data é confirmada com o laboratório pelo WhatsApp).
+  // Urgência: sem data obrigatória — o prazo é combinado com o laboratório pelo WhatsApp.
   const prazoCurto = !urgente && !!prazo && grupos.length > 0 && prazo < prazoMinimo;
   const temPrecos = Object.keys(precos).length > 0;
 
@@ -172,10 +177,6 @@ function NovaOS() {
     if (!paciente.trim()) faltando.push("nome do paciente");
     if (grupos.length === 0) faltando.push("pelo menos um trabalho no odontograma");
     if (casoPedeCor && !corCaso.trim()) faltando.push("cor final do caso");
-    if (urgente && !prazo) {
-      setErro("No caso de urgência, escolha a data que você precisa — o laboratório confirma com você pelo WhatsApp.");
-      return;
-    }
     if (prazoCurto) {
       setErro(`O prazo mínimo para esse caso é ${dataBRCurta(prazoMinimo)} (${diasMinimos} ${diasMinimos > 1 ? "dias" : "dia"}). Escolha essa data ou uma depois.`);
       return;
@@ -183,6 +184,13 @@ function NovaOS() {
     if (faltando.length) {
       setErro(`Falta preencher: ${faltando.join(", ")}.`);
       return;
+    }
+
+    // Urgência: abre a aba do WhatsApp já no clique (senão o navegador bloqueia)
+    // e só coloca o link depois que a OS foi criada, com o número dela.
+    let abaWhats: Window | null = null;
+    if (urgente) {
+      try { abaWhats = window.open("", "_blank"); } catch { abaWhats = null; }
     }
 
     setEstado("enviando");
@@ -209,7 +217,7 @@ function NovaOS() {
           dentes: ORDEM_DENTES.filter((d) => marcacoes[d]),
           material: materiais.join(", ") || null,
           cor_restauracao: casoPedeCor ? corCaso.trim() : null,
-          prazo_desejado: prazo || null,
+          prazo_desejado: urgente ? null : prazo || null,
           instalacao_agendada: instalacao || null,
           plataforma_envio: enviaveis.length ? "Portal GC" : null,
           observacoes: observacoes.trim() || null,
@@ -262,9 +270,13 @@ function NovaOS() {
         }).catch(() => {});
       }
 
+      if (abaWhats) {
+        try { abaWhats.location.href = linkUrgencia(numeroOS(pedido.numero), paciente); } catch { /* fica o botão */ }
+      }
       setResultado({ numero: pedido.numero, falhas, urgente });
       setEstado("pronto");
     } catch (err) {
+      try { abaWhats?.close(); } catch { /* ok */ }
       setErro(`Não consegui enviar a OS. Detalhe: ${mensagemDeErro(err)}`);
       setEstado("editando");
     }
@@ -287,22 +299,16 @@ function NovaOS() {
           <div className="mt-6 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-4 text-left">
             <p className="font-semibold text-rose-200">⚠️ Caso marcado como urgência</p>
             <p className="mt-1 text-sm text-zinc-300">
-              Confirme a data de {prazo ? dataBRCurta(prazo) : "entrega"} direto com o laboratório antes de contar com ela.
+              Avise o laboratório pelo WhatsApp para combinar a data de entrega. Se o WhatsApp não abriu sozinho, toque no botão:
             </p>
-            {WHATSAPP_LAB ? (
-              <a
-                href={`https://wa.me/${WHATSAPP_LAB}?text=${encodeURIComponent(
-                  `Olá, Gabriel! Enviei a OS ${numeroOS(resultado.numero)} (paciente ${paciente}) como URGÊNCIA, para ${prazo ? dataBRCurta(prazo) : "o quanto antes"}. Consegue confirmar essa data?`
-                )}`}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-400"
-              >
-                Confirmar a data no WhatsApp
-              </a>
-            ) : (
-              <p className="mt-2 text-sm text-zinc-400">O laboratório vai entrar em contato para confirmar.</p>
-            )}
+            <a
+              href={linkUrgencia(numeroOS(resultado.numero), paciente)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-400"
+            >
+              Avisar o laboratório no WhatsApp
+            </a>
           </div>
         )}
         <div className="mt-8 flex justify-center gap-3">
@@ -363,17 +369,17 @@ function NovaOS() {
                 <input
                   type="date"
                   className={`gc-input [color-scheme:dark] ${prazoCurto ? "!border-rose-400/70" : ""}`}
-                  value={prazo}
-                  min={grupos.length && !urgente ? prazoMinimo : dataDaquiA(0)}
+                  value={urgente ? "" : prazo}
+                  min={grupos.length ? prazoMinimo : dataDaquiA(0)}
                   onChange={(e) => setPrazo(e.target.value)}
-                  disabled={enviando}
+                  disabled={enviando || urgente}
                 />
                 <span className={`text-xs ${prazoCurto ? "text-rose-300" : "text-zinc-500"}`}>
                   {urgente
-                    ? "Urgência: a data precisa ser confirmada com o laboratório."
+                    ? "Urgência: a data será combinada com o laboratório pelo WhatsApp."
                     : grupos.length
                     ? `Prazo mínimo para este caso: ${dataBRCurta(prazoMinimo)} (${diasMinimos} ${diasMinimos > 1 ? "dias corridos" : "dia"})`
-                    : "Design: 2 dias (IBAR: 1 dia) · Cerâmicos: 7 dias · Demais: 10 dias corridos"}
+                    : "Design: 2 dias (IBAR: 1 dia) · Demais trabalhos: 7 dias corridos"}
                 </span>
               </label>
               <label className="flex flex-col gap-1.5 text-sm text-zinc-300">
@@ -384,7 +390,7 @@ function NovaOS() {
                 <input type="checkbox" className="mt-1" checked={urgente} onChange={(e) => setUrgente(e.target.checked)} disabled={enviando} />
                 <span>
                   <strong>⚠️ É urgência</strong>
-                  <span className="block text-xs text-zinc-400">Libera datas antes do prazo mínimo. Depois de enviar, você confirma a data com o laboratório pelo WhatsApp.</span>
+                  <span className="block text-xs text-zinc-400">Não precisa escolher data. Ao enviar, abre o WhatsApp do laboratório para combinar o prazo.</span>
                 </span>
               </label>
             </div>
