@@ -2,8 +2,10 @@ export const STATUS_ORDER = [
   "recebido",
   "standby",
   "cad",
+  "aprovacao",
   "cam",
   "finalizacao",
+  "prova",
   "entregue",
 ] as const;
 
@@ -13,8 +15,10 @@ export const STATUS_LABEL: Record<StatusPedido, string> = {
   recebido: "Recebido",
   standby: "Standby",
   cad: "CAD",
-  cam: "CAM",
+  aprovacao: "Aprovação (HTML)",
+  cam: "CAM / fresagem",
   finalizacao: "Finalização",
+  prova: "Prova",
   entregue: "Entregue",
 };
 
@@ -22,8 +26,10 @@ export const STATUS_COLOR: Record<StatusPedido, string> = {
   recebido: "bg-slate-100 text-slate-700 border-slate-300",
   standby: "bg-amber-100 text-amber-800 border-amber-300",
   cad: "bg-sky-100 text-sky-800 border-sky-300",
+  aprovacao: "bg-rose-100 text-rose-800 border-rose-300",
   cam: "bg-indigo-100 text-indigo-800 border-indigo-300",
   finalizacao: "bg-violet-100 text-violet-800 border-violet-300",
+  prova: "bg-orange-100 text-orange-800 border-orange-300",
   entregue: "bg-teal-100 text-teal-800 border-teal-300",
 };
 
