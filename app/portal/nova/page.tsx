@@ -6,7 +6,7 @@ import PortalShell, { useDentista } from "@/components/gc/PortalShell";
 import OdontogramaTrabalhos, { COR_CATEGORIA, type Marcacoes } from "@/components/OdontogramaTrabalhos";
 import { Botao, I, PageHeader, Panel } from "@/components/gc/ui";
 import { supabaseBrowser } from "@/lib/supabaseClient";
-import { ehPontico, materialDoCaminho, nomeUnidade, pedeCor } from "@/lib/catalogo";
+import { ehPontico, materialDoCaminho, nomeUnidade, pedeCor, prazoMinimoDias } from "@/lib/catalogo";
 import { ORDEM_DENTES, agruparMarcacoes } from "@/lib/odontograma";
 import { orcamento } from "@/lib/precos";
 import { MAX_ARQUIVO, brl, numeroOS, tamanhoLegivel } from "@/lib/gc";
@@ -14,6 +14,9 @@ import AssistenteVoz, { estadoParaMarcacoes } from "@/components/gc/AssistenteVo
 import type { EstadoVoz } from "@/lib/voz";
 
 const PREF_VOZ = "gc-assistente-voz";
+
+// WhatsApp do laboratório (com DDI e DDD, só números) para confirmar casos de urgência.
+const WHATSAPP_LAB = (process.env.NEXT_PUBLIC_WHATSAPP_LAB || "").replace(/\D/g, "");
 
 export default function NovaOSPage() {
   return (
@@ -42,6 +45,15 @@ function nomeSeguro(nome: string) {
     .slice(-120);
 }
 
+/** Data (AAAA-MM-DD, no fuso do aparelho) daqui a N dias corridos. */
+function dataDaquiA(dias: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + dias);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const dataBRCurta = (iso: string) => iso.split("-").reverse().join("/");
+
 function mensagemDeErro(err: unknown) {
   if (err instanceof Error) return err.message;
   if (err && typeof err === "object" && "message" in err) return String((err as { message: unknown }).message);
@@ -52,6 +64,7 @@ function NovaOS() {
   const { sessao, dentista, nomeTabela } = useDentista();
   const [paciente, setPaciente] = useState("");
   const [prazo, setPrazo] = useState("");
+  const [urgente, setUrgente] = useState(false);
   const [instalacao, setInstalacao] = useState("");
   const [corCaso, setCorCaso] = useState("");
   const [observacoes, setObservacoes] = useState("");
@@ -61,7 +74,7 @@ function NovaOS() {
   const [precos, setPrecos] = useState<Record<string, number>>({});
   const [estado, setEstado] = useState<"editando" | "enviando" | "pronto">("editando");
   const [erro, setErro] = useState<string | null>(null);
-  const [resultado, setResultado] = useState<{ numero: number | null; falhas: number } | null>(null);
+  const [resultado, setResultado] = useState<{ numero: number | null; falhas: number; urgente: boolean } | null>(null);
   const [arrastando, setArrastando] = useState(false);
   const inputArquivo = useRef<HTMLInputElement>(null);
   const painelArquivos = useRef<HTMLDivElement>(null);
@@ -128,6 +141,11 @@ function NovaOS() {
   const grupos = useMemo(() => agruparMarcacoes(marcacoes), [marcacoes]);
   const orc = useMemo(() => orcamento(grupos, precos), [grupos, precos]);
   const casoPedeCor = grupos.some((g) => pedeCor(g.caminho) || ehPontico(g.caminho));
+  // Prazo mínimo do caso = o maior prazo mínimo entre os trabalhos marcados.
+  const diasMinimos = grupos.length ? Math.max(...grupos.map((g) => prazoMinimoDias(g.caminho))) : 0;
+  const prazoMinimo = dataDaquiA(diasMinimos);
+  // Urgência: libera datas antes do prazo mínimo (a data é confirmada com o laboratório pelo WhatsApp).
+  const prazoCurto = !urgente && !!prazo && grupos.length > 0 && prazo < prazoMinimo;
   const temPrecos = Object.keys(precos).length > 0;
 
   function adicionarArquivos(lista: FileList | null) {
@@ -154,6 +172,14 @@ function NovaOS() {
     if (!paciente.trim()) faltando.push("nome do paciente");
     if (grupos.length === 0) faltando.push("pelo menos um trabalho no odontograma");
     if (casoPedeCor && !corCaso.trim()) faltando.push("cor final do caso");
+    if (urgente && !prazo) {
+      setErro("No caso de urgência, escolha a data que você precisa — o laboratório confirma com você pelo WhatsApp.");
+      return;
+    }
+    if (prazoCurto) {
+      setErro(`O prazo mínimo para esse caso é ${dataBRCurta(prazoMinimo)} (${diasMinimos} ${diasMinimos > 1 ? "dias" : "dia"}). Escolha essa data ou uma depois.`);
+      return;
+    }
     if (faltando.length) {
       setErro(`Falta preencher: ${faltando.join(", ")}.`);
       return;
@@ -171,9 +197,7 @@ function NovaOS() {
       );
       const enviaveis = arquivos.filter((a) => a.estado !== "erro");
 
-      const { data: pedido, error } = await supabaseBrowser
-        .from("pedidos")
-        .insert({
+      const dadosOS = {
           os_id: crypto.randomUUID(),
           dentista_id: dentista.id,
           dentista_nome: dentista.nome,
@@ -190,9 +214,13 @@ function NovaOS() {
           plataforma_envio: enviaveis.length ? "Portal GC" : null,
           observacoes: observacoes.trim() || null,
           valor_estimado: temPrecos ? orc.total : null,
-        })
-        .select("id, numero")
-        .single();
+      };
+      const inserir = (d: Record<string, unknown>) => supabaseBrowser.from("pedidos").insert(d).select("id, numero").single();
+      let { data: pedido, error } = await inserir(urgente ? { ...dadosOS, urgente: true } : dadosOS);
+      if (error && urgente && /urgente/i.test(error.message)) {
+        // banco ainda sem a coluna "urgente": marca a urgência nas observações
+        ({ data: pedido, error } = await inserir({ ...dadosOS, observacoes: `⚠️ URGENTE — confirmar data. ${dadosOS.observacoes ?? ""}`.trim() }));
+      }
       if (error || !pedido) throw error ?? new Error("Não consegui criar a OS.");
 
       // Arquivos: um por vez, para não estourar a internet de quem envia.
@@ -234,7 +262,7 @@ function NovaOS() {
         }).catch(() => {});
       }
 
-      setResultado({ numero: pedido.numero, falhas });
+      setResultado({ numero: pedido.numero, falhas, urgente });
       setEstado("pronto");
     } catch (err) {
       setErro(`Não consegui enviar a OS. Detalhe: ${mensagemDeErro(err)}`);
@@ -254,6 +282,28 @@ function NovaOS() {
           <p className="mt-4 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
             {resultado.falhas} arquivo(s) não subiram. Envie de novo pela tela da OS ou mande pelo WhatsApp.
           </p>
+        )}
+        {resultado.urgente && (
+          <div className="mt-6 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-4 text-left">
+            <p className="font-semibold text-rose-200">⚠️ Caso marcado como urgência</p>
+            <p className="mt-1 text-sm text-zinc-300">
+              Confirme a data de {prazo ? dataBRCurta(prazo) : "entrega"} direto com o laboratório antes de contar com ela.
+            </p>
+            {WHATSAPP_LAB ? (
+              <a
+                href={`https://wa.me/${WHATSAPP_LAB}?text=${encodeURIComponent(
+                  `Olá, Gabriel! Enviei a OS ${numeroOS(resultado.numero)} (paciente ${paciente}) como URGÊNCIA, para ${prazo ? dataBRCurta(prazo) : "o quanto antes"}. Consegue confirmar essa data?`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-400"
+              >
+                Confirmar a data no WhatsApp
+              </a>
+            ) : (
+              <p className="mt-2 text-sm text-zinc-400">O laboratório vai entrar em contato para confirmar.</p>
+            )}
+          </div>
         )}
         <div className="mt-8 flex justify-center gap-3">
           <Botao variante="secundario" href="/portal">Minhas OS</Botao>
@@ -310,11 +360,32 @@ function NovaOS() {
               </label>
               <label className="flex flex-col gap-1.5 text-sm text-zinc-300">
                 Prazo desejado
-                <input type="date" className="gc-input [color-scheme:dark]" value={prazo} onChange={(e) => setPrazo(e.target.value)} disabled={enviando} />
+                <input
+                  type="date"
+                  className={`gc-input [color-scheme:dark] ${prazoCurto ? "!border-rose-400/70" : ""}`}
+                  value={prazo}
+                  min={grupos.length && !urgente ? prazoMinimo : dataDaquiA(0)}
+                  onChange={(e) => setPrazo(e.target.value)}
+                  disabled={enviando}
+                />
+                <span className={`text-xs ${prazoCurto ? "text-rose-300" : "text-zinc-500"}`}>
+                  {urgente
+                    ? "Urgência: a data precisa ser confirmada com o laboratório."
+                    : grupos.length
+                    ? `Prazo mínimo para este caso: ${dataBRCurta(prazoMinimo)} (${diasMinimos} ${diasMinimos > 1 ? "dias corridos" : "dia"})`
+                    : "Design: 2 dias (IBAR: 1 dia) · Cerâmicos: 7 dias · Demais: 10 dias corridos"}
+                </span>
               </label>
               <label className="flex flex-col gap-1.5 text-sm text-zinc-300">
                 Data da instalação (se já marcada)
                 <input type="date" className="gc-input [color-scheme:dark]" value={instalacao} onChange={(e) => setInstalacao(e.target.value)} disabled={enviando} />
+              </label>
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm sm:col-span-2 ${urgente ? "border-rose-400/50 bg-rose-500/10 text-rose-100" : "border-white/10 text-zinc-300"}`}>
+                <input type="checkbox" className="mt-1" checked={urgente} onChange={(e) => setUrgente(e.target.checked)} disabled={enviando} />
+                <span>
+                  <strong>⚠️ É urgência</strong>
+                  <span className="block text-xs text-zinc-400">Libera datas antes do prazo mínimo. Depois de enviar, você confirma a data com o laboratório pelo WhatsApp.</span>
+                </span>
               </label>
             </div>
           </Panel>
