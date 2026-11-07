@@ -37,7 +37,27 @@ const COR_TOPO: Record<StatusPedido, string> = {
 };
 
 const DIA = 86400000;
-const hojeISO = () => new Date().toISOString().slice(0, 10);
+/** Data AAAA-MM-DD no fuso do aparelho (o laboratório está no Brasil). */
+const isoLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const hojeISO = () => isoLocal(new Date());
+const somaDias = (iso: string, dias: number) => {
+  const [a, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return isoLocal(new Date(a, m - 1, d + dias));
+};
+
+/** Prazo de cada etapa (dias corridos a partir de quando o caso entrou nela). */
+export const PRAZO_ETAPA: Partial<Record<StatusPedido, number>> = { cad: 2, cam: 3, finalizacao: 3 };
+
+/** Até quando a etapa atual precisa ficar pronta. Se o prazo final do caso vier antes, vale ele. */
+function limiteEtapa(c: CartaoOS): { data: string; motivo: "etapa" | "prazo final" } | null {
+  const dias = PRAZO_ETAPA[c.status];
+  if (dias == null) return null;
+  const entrou = isoLocal(new Date(c.status_updated_at ?? c.created_at));
+  const daEtapa = somaDias(entrou, dias);
+  const final = c.prazo_desejado?.slice(0, 10);
+  if (final && final < daEtapa) return { data: final, motivo: "prazo final" };
+  return { data: daEtapa, motivo: "etapa" };
+}
 const diasDesde = (iso: string | null) => (iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / DIA)) : 0);
 const ddmm = (iso: string | null) => {
   if (!iso) return "";
@@ -108,6 +128,22 @@ export default function Quadro({ iniciais }: { iniciais: CartaoOS[] }) {
     }
     return m;
   }, [filtrados]);
+
+  // Agenda: casos em CAD, CAM e Finalização ordenados pelo limite da etapa.
+  const agenda = useMemo(() => {
+    const hoje = hojeISO();
+    const amanha = somaDias(hoje, 1);
+    const itens = cartoes
+      .map((c) => ({ c, lim: limiteEtapa(c) }))
+      .filter((x): x is { c: CartaoOS; lim: NonNullable<ReturnType<typeof limiteEtapa>> } => !!x.lim && x.lim.data <= amanha)
+      .sort((a, b) => a.lim.data.localeCompare(b.lim.data) || Number(!!b.c.urgente) - Number(!!a.c.urgente));
+    return {
+      atrasados: itens.filter((x) => x.lim.data < hoje),
+      hoje: itens.filter((x) => x.lim.data === hoje),
+      amanha: itens.filter((x) => x.lim.data === amanha),
+    };
+  }, [cartoes]);
+  const [agendaAberta, setAgendaAberta] = useState(true);
 
   async function mover(id: string, para: StatusPedido) {
     const antes = cartoes.find((c) => c.id === id);
@@ -225,6 +261,48 @@ export default function Quadro({ iniciais }: { iniciais: CartaoOS[] }) {
         <p className="text-sm text-zinc-500">Arraste o cartão para a etapa seguinte. No celular, segure o cartão um instante e depois arraste. Toque no cartão para abrir o trabalho.</p>
       </div>
 
+      <section className="rounded-2xl border border-white/10 bg-white/[0.03]">
+        <button type="button" onClick={() => setAgendaAberta((v) => !v)} className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left">
+          <span className="text-sm font-bold text-white">📅 Agenda do dia</span>
+          <span className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+            <span className={`rounded-full px-2 py-0.5 ${agenda.atrasados.length ? "bg-rose-600 text-white" : "bg-white/10 text-zinc-400"}`}>{agenda.atrasados.length} atrasado(s)</span>
+            <span className={`rounded-full px-2 py-0.5 ${agenda.hoje.length ? "bg-amber-500 text-black" : "bg-white/10 text-zinc-400"}`}>{agenda.hoje.length} para hoje</span>
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-zinc-300">{agenda.amanha.length} para amanhã</span>
+            <span className="text-zinc-500">{agendaAberta ? "▲" : "▼"}</span>
+          </span>
+        </button>
+        {agendaAberta && (
+          <div className="grid gap-3 border-t border-white/5 p-4 md:grid-cols-3">
+            {([
+              ["Atrasados", agenda.atrasados, "text-rose-300"],
+              ["Fazer hoje", agenda.hoje, "text-amber-300"],
+              ["Amanhã", agenda.amanha, "text-zinc-300"],
+            ] as const).map(([titulo, lista, cor]) => (
+              <div key={titulo} className="flex flex-col gap-1.5">
+                <p className={`text-xs font-bold uppercase tracking-wide ${cor}`}>{titulo}</p>
+                {lista.length === 0 ? (
+                  <p className="text-xs text-zinc-600">Nada aqui.</p>
+                ) : (
+                  lista.map(({ c, lim }) => (
+                    <a key={c.id} href={`/pedido/${c.id}`} className="rounded-lg bg-black/30 px-3 py-2 text-xs hover:bg-black/50">
+                      <span className="font-semibold text-white">
+                        {c.urgente ? "⚠️ " : ""}
+                        {c.numero ? String(c.numero).padStart(3, "0") : "—"} · {c.paciente_nome}
+                      </span>
+                      <span className="block text-zinc-400">
+                        {STATUS_LABEL[c.status]} até {ddmm(lim.data)}
+                        {lim.motivo === "prazo final" ? " (prazo final do caso)" : ""} · {resumoTrabalho(c)}
+                      </span>
+                    </a>
+                  ))
+                )}
+              </div>
+            ))}
+            <p className="text-[11px] text-zinc-500 md:col-span-3">Prazos por etapa (dias corridos desde que o caso entrou nela): CAD 2 dias · CAM 3 dias · Finalização 3 dias.</p>
+          </div>
+        )}
+      </section>
+
       <div id="quadro-colunas" className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-4" style={{ minHeight: "70vh" }}>
         {STATUS_ORDER.map((s) => {
           const lista = porColuna[s];
@@ -236,7 +314,10 @@ export default function Quadro({ iniciais }: { iniciais: CartaoOS[] }) {
               className={`flex w-[272px] shrink-0 flex-col rounded-2xl border bg-white/[0.03] transition ${alvo ? "border-pink-300/60 bg-pink-400/[0.06]" : "border-white/5"}`}
             >
               <header className={`flex items-center justify-between gap-2 border-b-2 px-4 py-3 ${COR_TOPO[s]}`}>
-                <h2 className="text-sm font-bold text-white">{STATUS_LABEL[s]}</h2>
+                <h2 className="text-sm font-bold text-white">
+                  {STATUS_LABEL[s]}
+                  {PRAZO_ETAPA[s] != null && <span className="ml-1.5 text-[11px] font-normal text-zinc-500">{PRAZO_ETAPA[s]} dias</span>}
+                </h2>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${s === "standby" && lista.length ? "bg-rose-500 text-white" : "bg-white/10 text-zinc-200"}`}>{lista.length}</span>
               </header>
               {s === "entregue" && (
@@ -278,6 +359,8 @@ function Cartao({ c, fantasma, onPointerDown }: { c: CartaoOS; fantasma?: boolea
   const entregue = c.status === "entregue";
   const atrasado = !entregue && !!c.prazo_desejado && c.prazo_desejado.slice(0, 10) < hojeISO();
   const parado = !entregue && dias >= 7;
+  const lim = limiteEtapa(c);
+  const hoje = hojeISO();
   return (
     <article
       onPointerDown={onPointerDown}
@@ -300,6 +383,11 @@ function Cartao({ c, fantasma, onPointerDown }: { c: CartaoOS; fantasma?: boolea
           <span className="rounded-md border border-emerald-400/40 px-1.5 py-0.5 text-emerald-300">Entregue {ddmm(c.status_updated_at)}</span>
         ) : (
           <span className={`rounded-md px-1.5 py-0.5 ${parado ? "bg-rose-600 text-white" : "bg-white/10 text-zinc-300"}`}>há {dias} d</span>
+        )}
+        {lim && (
+          <span className={`rounded-md px-1.5 py-0.5 ${lim.data < hoje ? "bg-rose-600 text-white" : lim.data === hoje ? "bg-amber-500 text-black" : "bg-sky-500/15 text-sky-300"}`}>
+            {lim.data < hoje ? "etapa atrasada" : lim.data === hoje ? "etapa: hoje" : `etapa até ${ddmm(lim.data)}`}
+          </span>
         )}
         {!entregue && c.prazo_desejado && (
           <span className={`rounded-md px-1.5 py-0.5 ${atrasado ? "bg-rose-600 text-white" : "bg-white/10 text-zinc-300"}`}>prazo {ddmm(c.prazo_desejado)}</span>
