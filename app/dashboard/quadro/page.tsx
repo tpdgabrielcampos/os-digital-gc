@@ -24,6 +24,8 @@ export default async function QuadroPage() {
     prazo_desejado: p.prazo_desejado,
     arquivos: Array.isArray(p.pedido_arquivos) ? p.pedido_arquivos.length : 0,
     urgente: !!p.urgente || /URGENTE/.test(p.observacoes ?? ""),
+    aguardando: (!!p.aguardando_arquivos || /AGUARDANDO ARQUIVOS/.test(p.observacoes ?? "")) && (p.status === "recebido" || p.status === "standby"),
+    atualizado_dentista: p.atualizado_pelo_dentista_em ?? null,
   }));
 
   return (
