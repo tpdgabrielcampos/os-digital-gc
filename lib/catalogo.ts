@@ -70,9 +70,8 @@ export const CATALOGO: NoCatalogo[] = [
       { nome: "Smile design" },
       { nome: "Coroa / faceta" },
       { nome: "Protocolo", descricao: "Marca a arcada completa" },
-      { nome: "Modelo" },
-      { nome: "Troquel individual" },
-      { nome: "IBAR" },
+      { nome: "IBAR", descricao: "Arcada inteira" },
+      { nome: "IBAR meia arcada", descricao: "Um lado da arcada (cobrado por lado)" },
     ],
   },
 ];
@@ -127,22 +126,35 @@ export function todasAsFolhas(nivel: NoCatalogo[] = CATALOGO, prefixo: string[] 
   return saida;
 }
 
-/** Como o serviço é cobrado: por dente (elemento) ou por arcada. */
-export type Unidade = "elemento" | "arcada";
+/** Como o serviço é cobrado: por dente (elemento), por arcada ou por meia arcada (lado). */
+export type Unidade = "elemento" | "arcada" | "meia arcada";
+
+/** Texto da unidade no singular/plural. */
+export function nomeUnidade(u: Unidade, qtd = 1) {
+  if (u === "arcada") return qtd > 1 ? "arcadas" : "arcada";
+  if (u === "meia arcada") return qtd > 1 ? "meias arcadas" : "meia arcada";
+  return qtd > 1 ? "elementos" : "elemento";
+}
 
 const POR_ARCADA = new Set(["Protocolo", "Placa miorelaxante", "Impressão de modelo", "Impressão de biomodelo"]);
 
-/** Design CAD (só desenho): protocolo, modelo e IBAR são por arcada; o resto por peça. */
-const DESIGN_POR_ARCADA = new Set(["Protocolo", "Modelo", "IBAR"]);
+/** Design CAD (só desenho): protocolo e IBAR por arcada; IBAR meia arcada por lado; o resto por peça. */
+const DESIGN_POR_ARCADA = new Set(["Protocolo", "IBAR"]);
 
 export function unidadeDoServico(caminho: string[]): Unidade {
-  if (caminho[0] === "Design CAD") return DESIGN_POR_ARCADA.has(caminho[1]) ? "arcada" : "elemento";
+  if (caminho[0] === "Design CAD") {
+    if (caminho[1] === "IBAR meia arcada") return "meia arcada";
+    return DESIGN_POR_ARCADA.has(caminho[1]) ? "arcada" : "elemento";
+  }
   return POR_ARCADA.has(caminho[0]) ? "arcada" : "elemento";
 }
 
 /** Quantidade cobrada: nº de dentes, ou nº de arcadas (superior/inferior) envolvidas. */
 export function quantidadeCobrada(caminho: string[], dentes: string[]): number {
-  if (unidadeDoServico(caminho) === "elemento") return dentes.length;
+  const u = unidadeDoServico(caminho);
+  if (u === "elemento") return dentes.length;
+  // meia arcada: conta os lados (quadrantes 1, 2, 3 e 4) que têm dente marcado
+  if (u === "meia arcada") return new Set(dentes.map((d) => d[0])).size;
   const sup = dentes.some((d) => d[0] === "1" || d[0] === "2");
   const inf = dentes.some((d) => d[0] === "3" || d[0] === "4");
   return (sup ? 1 : 0) + (inf ? 1 : 0);
