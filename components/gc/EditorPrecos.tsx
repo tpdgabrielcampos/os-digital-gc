@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Botao, I, PageHeader, Panel, Vazio } from "@/components/gc/ui";
 import { COR_CATEGORIA } from "@/components/OdontogramaTrabalhos";
-import { SEPARADOR, todasAsFolhas, unidadeDoServico } from "@/lib/catalogo";
+import { SEPARADOR, nomeUnidade, todasAsFolhas, unidadeDoServico } from "@/lib/catalogo";
 import type { Preco } from "@/lib/gc";
 
 interface Tab {
@@ -181,7 +181,9 @@ export default function EditorPrecos({ tabelas, selecionada, precos }: { tabelas
               <div key={cat}>
                 <p className="mb-2 flex items-center gap-2 text-sm font-bold text-white">
                   <span className={`h-2.5 w-2.5 rounded-full border ${COR_CATEGORIA[cat] ?? ""}`} /> {cat}
-                  <span className="font-normal text-zinc-500">· por {unidadeDoServico(itens[0]) === "arcada" ? "arcada" : "elemento"}</span>
+                  {new Set(itens.map((i) => unidadeDoServico(i))).size === 1 && (
+                    <span className="font-normal text-zinc-500">· por {nomeUnidade(unidadeDoServico(itens[0]))}</span>
+                  )}
                 </p>
                 <div className="divide-y divide-white/5 rounded-xl border border-white/5">
                   {itens.map((f) => {
@@ -190,7 +192,12 @@ export default function EditorPrecos({ tabelas, selecionada, precos }: { tabelas
                     const ruim = Number.isNaN(paraNumero(valores[k] ?? ""));
                     return (
                       <div key={k} className="flex items-center justify-between gap-4 px-4 py-2.5">
-                        <span className="text-[15px] text-zinc-200">{nome}</span>
+                        <span className="text-[15px] text-zinc-200">
+                          {nome}
+                          {new Set(itens.map((i) => unidadeDoServico(i))).size > 1 && (
+                            <span className="ml-2 text-xs text-zinc-500">por {nomeUnidade(unidadeDoServico(f))}</span>
+                          )}
+                        </span>
                         <span className="flex items-center gap-2">
                           <span className="text-sm text-zinc-500">R$</span>
                           <input
