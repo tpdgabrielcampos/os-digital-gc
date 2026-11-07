@@ -62,8 +62,10 @@ export const PONTO_STATUS: Record<StatusPedido, string> = {
   recebido: "bg-zinc-300",
   standby: "bg-rose-400",
   cad: "bg-sky-400",
+  aprovacao: "bg-pink-400",
   cam: "bg-violet-400",
   finalizacao: "bg-amber-300",
+  prova: "bg-orange-400",
   entregue: "bg-emerald-400",
 };
 
@@ -72,8 +74,10 @@ export const CARTAO_STATUS: Record<StatusPedido, string> = {
   recebido: "border-zinc-400/30 text-zinc-200",
   standby: "border-rose-400/30 text-rose-300",
   cad: "border-sky-400/30 text-sky-300",
+  aprovacao: "border-pink-400/30 text-pink-300",
   cam: "border-violet-400/30 text-violet-300",
   finalizacao: "border-amber-400/30 text-amber-300",
+  prova: "border-orange-400/30 text-orange-300",
   entregue: "border-emerald-400/30 text-emerald-300",
 };
 
