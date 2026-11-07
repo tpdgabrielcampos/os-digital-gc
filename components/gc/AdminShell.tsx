@@ -7,10 +7,12 @@ import { I } from "@/components/gc/ui";
 export default function AdminShell({
   ativo,
   contagens,
+  largo,
   children,
 }: {
   ativo: string;
   contagens?: Partial<Record<string, number>>;
+  largo?: boolean;
   children: ReactNode;
 }) {
   const menu = MENU_LAB.map((m) => (contagens?.[m.href] !== undefined ? { ...m, contagem: contagens[m.href] } : m));
@@ -18,6 +20,7 @@ export default function AdminShell({
     <Shell
       menu={menu}
       ativo={ativo}
+      largo={largo}
       usuario="Gabriel"
       papel="Laboratório"
       sair={<LogoutButton />}
