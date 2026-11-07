@@ -8,10 +8,14 @@ export default function PainelControle({
   pedidoId,
   statusAtual,
   notasIniciais,
+  prazoInicial,
+  urgente,
 }: {
   pedidoId: string;
   statusAtual: StatusPedido;
   notasIniciais: string | null;
+  prazoInicial?: string | null;
+  urgente?: boolean;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<StatusPedido>(statusAtual);
@@ -20,8 +24,11 @@ export default function PainelControle({
   const [salvandoNotas, setSalvandoNotas] = useState(false);
   const [erroStatus, setErroStatus] = useState<string | null>(null);
   const [mensagemNotas, setMensagemNotas] = useState<string | null>(null);
+  const [prazo, setPrazo] = useState((prazoInicial ?? "").slice(0, 10));
+  const [salvandoPrazo, setSalvandoPrazo] = useState(false);
+  const [mensagemPrazo, setMensagemPrazo] = useState<string | null>(null);
 
-  async function salvar(campos: Partial<{ status: StatusPedido; notas_internas: string }>) {
+  async function salvar(campos: Partial<{ status: StatusPedido; notas_internas: string; prazo_desejado: string | null }>) {
     const res = await fetch(`/api/pedidos/${pedidoId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -56,6 +63,20 @@ export default function PainelControle({
       setErroStatus(err instanceof Error ? err.message : "Não consegui salvar. Tente novamente.");
     } finally {
       setSalvandoStatus(false);
+    }
+  }
+
+  async function salvarPrazo() {
+    setSalvandoPrazo(true);
+    setMensagemPrazo(null);
+    try {
+      await salvar({ prazo_desejado: prazo || null });
+      setMensagemPrazo("Prazo salvo.");
+      router.refresh();
+    } catch (err) {
+      setMensagemPrazo(err instanceof Error ? err.message : "Não consegui salvar. Tente novamente.");
+    } finally {
+      setSalvandoPrazo(false);
     }
   }
 
@@ -98,6 +119,22 @@ export default function PainelControle({
           </p>
         )}
       </label>
+
+      <div className="flex flex-col gap-1 text-sm">
+        <span className="font-medium text-zinc-300">
+          Prazo de entrega {urgente && <span className="ml-1 rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-bold text-white">⚠️ URGENTE</span>}
+        </span>
+        <div className="flex gap-2">
+          <input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} className="gc-input flex-1 [color-scheme:dark]" />
+          <button onClick={salvarPrazo} disabled={salvandoPrazo} className="gc-btn gc-btn-secundario disabled:opacity-60">
+            {salvandoPrazo ? "Salvando..." : "Salvar"}
+          </button>
+        </div>
+        {urgente && !prazoInicial && <span className="text-xs text-rose-300">Urgência sem data: coloque aqui o prazo combinado com o dentista.</span>}
+        {mensagemPrazo && (
+          <span className={`text-xs ${mensagemPrazo === "Prazo salvo." ? "text-emerald-300" : "font-medium text-rose-300"}`}>{mensagemPrazo}</span>
+        )}
+      </div>
 
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-zinc-300">Notas internas</span>
