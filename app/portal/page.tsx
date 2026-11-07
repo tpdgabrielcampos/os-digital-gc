@@ -32,8 +32,10 @@ const COR_STATUS: Record<StatusPedido, string> = {
   recebido: "bg-zinc-300",
   standby: "bg-rose-400",
   cad: "bg-sky-400",
+  aprovacao: "bg-pink-400",
   cam: "bg-violet-400",
   finalizacao: "bg-amber-300",
+  prova: "bg-orange-400",
   entregue: "bg-emerald-400",
 };
 
@@ -42,8 +44,10 @@ const STATUS_DENTISTA: Record<StatusPedido, string> = {
   recebido: "Recebido",
   standby: "Aguardando informação",
   cad: "Em desenho (CAD)",
+  aprovacao: "Aguardando sua aprovação do projeto",
   cam: "Em produção (CAM)",
   finalizacao: "Em finalização",
+  prova: "Em prova",
   entregue: "Entregue",
 };
 
