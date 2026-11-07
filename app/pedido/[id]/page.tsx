@@ -119,7 +119,7 @@ export default async function PedidoDetalhePage({ params }: { params: { id: stri
         </div>
 
         <div className="flex flex-col gap-6">
-          <PainelControle pedidoId={pedido.id} statusAtual={pedido.status} notasIniciais={pedido.notas_internas} prazoInicial={pedido.prazo_desejado} urgente={!!(pedido as { urgente?: boolean }).urgente || /URGENTE/.test(pedido.observacoes ?? "")} />
+          <PainelControle pedidoId={pedido.id} statusAtual={pedido.status} notasIniciais={pedido.notas_internas} prazoInicial={pedido.prazo_desejado} urgente={!!(pedido as { urgente?: boolean }).urgente || /URGENTE/.test(pedido.observacoes ?? "")} aguardandoInicial={!!(pedido as { aguardando_arquivos?: boolean }).aguardando_arquivos} />
           <Panel eyebrow="Contato" title="Dentista">
             <dl className="flex flex-col gap-3 text-sm">
               <Item rotulo="Nome" valor={pedido.dentista_nome} />
