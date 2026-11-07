@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function QuadroPage() {
   const { data } = await supabaseAdmin
     .from("pedidos")
-    .select("id, numero, paciente_nome, dentista_nome, tipo_trabalho, dentes, status, status_updated_at, created_at, prazo_desejado, pedido_arquivos(id)")
+    .select("*, pedido_arquivos(id)")
     .order("created_at", { ascending: false })
     .limit(1000);
 
@@ -23,6 +23,7 @@ export default async function QuadroPage() {
     created_at: p.created_at,
     prazo_desejado: p.prazo_desejado,
     arquivos: Array.isArray(p.pedido_arquivos) ? p.pedido_arquivos.length : 0,
+    urgente: !!p.urgente || /URGENTE/.test(p.observacoes ?? ""),
   }));
 
   return (
