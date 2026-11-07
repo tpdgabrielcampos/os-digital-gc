@@ -13,8 +13,10 @@ const LISTA_FIXA: Record<StatusPedido, string | undefined> = {
   recebido: process.env.TRELLO_LIST_RECEBIDO,
   standby: process.env.TRELLO_LIST_STANDBY,
   cad: process.env.TRELLO_LIST_CAD,
+  aprovacao: process.env.TRELLO_LIST_APROVACAO,
   cam: process.env.TRELLO_LIST_CAM,
   finalizacao: process.env.TRELLO_LIST_FINALIZACAO,
+  prova: process.env.TRELLO_LIST_PROVA,
   entregue: process.env.TRELLO_LIST_ENTREGUE,
 };
 
@@ -42,7 +44,9 @@ function statusPeloNomeDaLista(nome: string): StatusPedido | undefined {
   if (n.startsWith("recebid")) return "recebido";
   if (n.startsWith("standby") || n.startsWith("stand by")) return "standby";
   if (n === "cad") return "cad";
-  if (n === "cam") return "cam";
+  if (n.startsWith("aprova")) return "aprovacao";
+  if (n === "cam" || n.startsWith("cam ") || n.startsWith("cam/") || n.startsWith("fresag")) return "cam";
+  if (n.startsWith("prova")) return "prova";
   if (n.startsWith("finaliza")) return "finalizacao";
   if (n.startsWith("entregue")) return "entregue";
   return undefined;
