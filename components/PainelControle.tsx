@@ -10,12 +10,14 @@ export default function PainelControle({
   notasIniciais,
   prazoInicial,
   urgente,
+  aguardandoInicial = false,
 }: {
   pedidoId: string;
   statusAtual: StatusPedido;
   notasIniciais: string | null;
   prazoInicial?: string | null;
   urgente?: boolean;
+  aguardandoInicial?: boolean;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<StatusPedido>(statusAtual);
@@ -27,8 +29,10 @@ export default function PainelControle({
   const [prazo, setPrazo] = useState((prazoInicial ?? "").slice(0, 10));
   const [salvandoPrazo, setSalvandoPrazo] = useState(false);
   const [mensagemPrazo, setMensagemPrazo] = useState<string | null>(null);
+  const [aguardando, setAguardando] = useState(aguardandoInicial);
+  const [erroAguardando, setErroAguardando] = useState<string | null>(null);
 
-  async function salvar(campos: Partial<{ status: StatusPedido; notas_internas: string; prazo_desejado: string | null }>) {
+  async function salvar(campos: Partial<{ status: StatusPedido; notas_internas: string; prazo_desejado: string | null; aguardando_arquivos: boolean }>) {
     const res = await fetch(`/api/pedidos/${pedidoId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -63,6 +67,18 @@ export default function PainelControle({
       setErroStatus(err instanceof Error ? err.message : "Não consegui salvar. Tente novamente.");
     } finally {
       setSalvandoStatus(false);
+    }
+  }
+
+  async function alterarAguardando(v: boolean) {
+    setAguardando(v);
+    setErroAguardando(null);
+    try {
+      await salvar({ aguardando_arquivos: v });
+      router.refresh();
+    } catch (err) {
+      setAguardando(!v);
+      setErroAguardando(err instanceof Error ? err.message : "Não consegui salvar.");
     }
   }
 
@@ -118,6 +134,15 @@ export default function PainelControle({
             ⚠ {erroStatus}
           </p>
         )}
+      </label>
+
+      <label className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm ${aguardando ? "border-amber-400/50 bg-amber-500/10 text-amber-100" : "border-white/10 text-zinc-300"}`}>
+        <input type="checkbox" className="mt-1" checked={aguardando} onChange={(e) => alterarAguardando(e.target.checked)} />
+        <span>
+          <strong>⏳ Aguardando arquivos do dentista</strong>
+          <span className="block text-xs text-zinc-400">Marcado: o dentista ainda pode anexar arquivos e complementos pelo portal. Desmarque quando a OS estiver completa.</span>
+          {erroAguardando && <span className="block text-xs text-rose-300">{erroAguardando}</span>}
+        </span>
       </label>
 
       <div className="flex flex-col gap-1 text-sm">
