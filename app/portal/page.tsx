@@ -25,8 +25,12 @@ interface Linha {
   status: StatusPedido;
   prazo_desejado: string | null;
   valor_estimado: number | null;
+  aguardando_arquivos?: boolean | null;
+  observacoes?: string | null;
   pedido_arquivos: { id: string; nome: string; tamanho: number | null }[];
 }
+
+const aguardando = (l: Linha) => (!!l.aguardando_arquivos || /AGUARDANDO ARQUIVOS/.test(l.observacoes ?? "")) && (l.status === "recebido" || l.status === "standby");
 
 const COR_STATUS: Record<StatusPedido, string> = {
   recebido: "bg-zinc-300",
@@ -66,7 +70,7 @@ function MinhasOS() {
   useEffect(() => {
     supabaseBrowser
       .from("pedidos")
-      .select("id, numero, created_at, paciente_nome, tipo_trabalho, dentes, status, prazo_desejado, valor_estimado, pedido_arquivos(id, nome, tamanho)")
+      .select("*, pedido_arquivos(id, nome, tamanho)")
       .eq("dentista_id", dentista.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => setLinhas((data as Linha[]) ?? []));
@@ -94,7 +98,7 @@ function MinhasOS() {
           tom="ambar"
           icone={I.relogio}
           rotulo="Aguardando você"
-          valor={todas.filter((l) => l.status === "standby").length}
+          valor={todas.filter((l) => l.status === "standby" || aguardando(l)).length}
           detalhe="casos que precisam de informação"
         />
       </div>
@@ -129,7 +133,11 @@ function MinhasOS() {
                     <p className="truncate text-sm text-zinc-400">{l.tipo_trabalho}</p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-sm font-semibold text-white">{STATUS_DENTISTA[l.status] ?? STATUS_LABEL[l.status]}</p>
+                    {aguardando(l) ? (
+                      <p className="text-sm font-semibold text-amber-300">⏳ Aguardando arquivos</p>
+                    ) : (
+                      <p className="text-sm font-semibold text-white">{STATUS_DENTISTA[l.status] ?? STATUS_LABEL[l.status]}</p>
+                    )}
                     <p className="text-xs text-zinc-400">enviado {dataBR(l.created_at)}</p>
                   </div>
                 </button>
@@ -147,6 +155,14 @@ function MinhasOS() {
                               {a.nome} <span className="text-zinc-500">({tamanhoLegivel(a.tamanho)})</span>
                             </span>
                           ))}
+                    </div>
+                    <div className="sm:col-span-3">
+                      <a
+                        href={`/portal/os/${l.id}`}
+                        className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold ${aguardando(l) ? "bg-amber-500 text-black hover:bg-amber-400" : "bg-white/10 text-white hover:bg-white/15"}`}
+                      >
+                        {aguardando(l) ? "Completar a OS (anexar arquivos)" : "Abrir a OS"}
+                      </a>
                     </div>
                   </div>
                 )}
