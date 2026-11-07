@@ -25,6 +25,7 @@ interface Voz {
 }
 
 const MODELOS = [
+  { id: "eleven_v4", nome: "Eleven v4 — o mesmo do site da ElevenLabs (recomendado)" },
   { id: "eleven_multilingual_v2", nome: "Multilingual v2 — melhor qualidade em português" },
   { id: "eleven_flash_v2_5", nome: "Flash v2.5 — mais rápida, gasta metade dos créditos" },
   { id: "eleven_v3", nome: "v3 — a mais expressiva (um pouco mais lenta)" },
@@ -55,7 +56,9 @@ export default function ConfigVoz() {
       .then((r) => r.json())
       .then((j) => {
         if (!j.ok) throw new Error(j.erro);
-        setConfig(j.config);
+        // Primeira vez (nada salvo ainda): já sugere o mesmo jeito do site da ElevenLabs.
+        const c = j.config as Config;
+        setConfig(c.voz_id ? c : { ...c, modelo: "eleven_v4", estabilidade: 0.5, estilo: 0 });
         setVozes(j.vozes ?? []);
         setTemChave(!!j.temChave);
         setErroVozes(j.erroVozes ?? null);
@@ -196,7 +199,7 @@ export default function ConfigVoz() {
                 </div>
               )}
               <p className="mt-4 text-xs text-zinc-500">
-                A amostra é em inglês. Para ouvir a voz em português, use “Testar” ao lado. Para uma voz exclusiva: na ElevenLabs, crie em <strong>Voices → Create a Voice</strong> (Voice Design ou clone da sua voz). Ela aparece aqui sozinha.
+                A amostra é em inglês. Para ouvir a voz em português, use “Testar” ao lado. Para soar igual ao site da ElevenLabs: modelo Eleven v4, expressividade 50% e estilo 0%. Para uma voz exclusiva: na ElevenLabs, crie em <strong>Voices → Create a Voice</strong> (Voice Design ou clone da sua voz). Ela aparece aqui sozinha.
               </p>
             </Panel>
           )}
