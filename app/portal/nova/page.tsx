@@ -225,7 +225,7 @@ function NovaOS() {
         }
       }
 
-      for (const rota of ["/api/trello/criar-cartao", "/api/planilha/enviar-pedido"]) {
+      for (const rota of ["/api/planilha/enviar-pedido"]) {
         fetch(rota, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
