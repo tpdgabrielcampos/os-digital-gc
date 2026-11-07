@@ -1,4 +1,4 @@
-import { quantidadeCobrada, unidadeDoServico } from "@/lib/catalogo";
+import { quantidadeCobrada, unidadeDoServico, type Unidade } from "@/lib/catalogo";
 import type { Grupo } from "@/lib/odontograma";
 
 export interface ItemOrcamento {
@@ -6,7 +6,7 @@ export interface ItemOrcamento {
   caminho: string[];
   dentes: string[];
   quantidade: number;
-  unidade: "elemento" | "arcada";
+  unidade: Unidade;
   unitario: number | null; // null = serviço sem preço na tabela
   total: number;
 }
