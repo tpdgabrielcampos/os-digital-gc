@@ -20,6 +20,7 @@ export interface CartaoOS {
   created_at: string;
   prazo_desejado: string | null;
   arquivos: number;
+  urgente?: boolean;
 }
 
 const COR_TOPO: Record<StatusPedido, string> = {
@@ -278,7 +279,7 @@ function Cartao({ c, fantasma, onPointerDown }: { c: CartaoOS; fantasma?: boolea
   return (
     <article
       onPointerDown={onPointerDown}
-      className={`cursor-grab touch-pan-y rounded-xl border border-white/10 bg-[#141416] p-3 transition hover:border-white/25 active:cursor-grabbing ${fantasma ? "opacity-30" : ""}`}
+      className={`cursor-grab touch-pan-y rounded-xl border bg-[#141416] p-3 ${c.urgente && !entregue ? "border-rose-500/60" : "border-white/10"} transition hover:border-white/25 active:cursor-grabbing ${fantasma ? "opacity-30" : ""}`}
     >
       <p className="text-sm font-bold leading-snug text-white">
         <span className="text-zinc-400">{c.numero ? String(c.numero).padStart(3, "0") : "—"}</span> · {c.paciente_nome}
@@ -288,6 +289,7 @@ function Cartao({ c, fantasma, onPointerDown }: { c: CartaoOS; fantasma?: boolea
         {c.dentista_nome ? ` · ${c.dentista_nome}` : ""}
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+        {c.urgente && !entregue && <span className="rounded-md bg-rose-600 px-1.5 py-0.5 text-white">⚠️ URGENTE</span>}
         {entregue ? (
           <span className="rounded-md border border-emerald-400/40 px-1.5 py-0.5 text-emerald-300">Entregue {ddmm(c.status_updated_at)}</span>
         ) : (
