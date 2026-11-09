@@ -25,7 +25,7 @@ export const PERGUNTAS: Record<EtapaVoz, string[]> = {
   trabalhos: ["Beleza. E o que a gente vai fazer, em quais dentes?", "Show. Qual é o trabalho e em quais dentes?"],
   mais_trabalhos: ["Mais alguma coisa nesse caso? Se não tiver, fala não.", "Tem mais algum trabalho? Se não, é só falar não."],
   cor: ["E a cor final, qual vai ser?", "Qual cor a gente segue?"],
-  datas: ["Tem prazo ou data de instalação marcada? Se não tiver, fala não.", "Pra quando você precisa? Se não tiver data, só fala não."],
+  datas: ["Pra quando você precisa da entrega?", "Qual a data de entrega? Se for urgência, é só falar urgência."],
   observacoes: ["Quer deixar alguma observação pro laboratório? Se não, fala não.", "Alguma observação? Se não tiver, tranquilo, fala não."],
   resumo: ["Tá tudo certo? Fala confirmar, ou me diz o que mudar.", "Confere aí: tá certo? Diz confirmar ou o que quer corrigir."],
 };
@@ -50,7 +50,7 @@ export const DICA: Partial<Record<EtapaVoz, string>> = {
   trabalhos: "Ex.: coroa de zircônia sobre implante no 11 e 21",
   mais_trabalhos: "Ex.: faceta de dissilicato no 12 — ou “não”",
   cor: "Ex.: A2, A3.5, BL2",
-  datas: "Ex.: prazo dia 20, instalação dia 25 — ou “não”",
+  datas: "Ex.: dia 20, sexta que vem — ou “urgência”",
   observacoes: "Ex.: paciente com bruxismo — ou “não”",
   resumo: "Diga “confirmar” ou o que quer corrigir",
 };
