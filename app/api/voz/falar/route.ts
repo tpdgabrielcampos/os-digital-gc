@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { adminAutorizado } from "@/lib/adminAuth";
-import { gerarAudio, lerConfigAssistente, premiumAtivo } from "@/lib/vozConfig";
+import { audioEmFluxo, gerarAudio, lerConfigAssistente, premiumAtivo } from "@/lib/vozConfig";
 
 // Gera a fala do assistente com a voz premium (ElevenLabs). Frases repetidas
 // (as perguntas fixas) ficam guardadas no Storage e não gastam crédito de novo.
@@ -37,6 +37,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, erro: "voz premium desligada" }, { status: 409 });
   }
 
+  if (!body?.teste) {
+    // tela do dentista: manda o áudio aos pedaços, conforme vai sendo gerado
+    const f = await audioEmFluxo(texto, c);
+    if (!f.corpo) return NextResponse.json({ ok: false, erro: f.erro }, { status: f.status ?? 500 });
+    return new NextResponse(f.corpo as BodyInit, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
+  }
   const g = await gerarAudio(texto, c);
   if (!g.audio) return NextResponse.json({ ok: false, erro: g.erro }, { status: g.status ?? 500 });
   return new NextResponse(g.audio, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
