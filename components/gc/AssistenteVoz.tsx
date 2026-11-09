@@ -332,6 +332,11 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
   }
 
   function irPara(proxima: EtapaVoz, e: EstadoVoz, prefixo = "") {
+    // A confirmação do assistente não pode trazer pergunta (senão fica duas perguntas seguidas).
+    prefixo = prefixo
+      .split(/(?<=[.!?])\s+/)
+      .filter((f) => f.trim() && !f.trim().endsWith("?"))
+      .join(" ");
     setEtapa(proxima);
     const q = sortearPergunta(proxima);
     const p = proxima === "resumo" ? `${resumoFalado(e)} ${q}` : q;
