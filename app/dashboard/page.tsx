@@ -186,7 +186,7 @@ export default async function VisaoGeral({ searchParams }: { searchParams: { p?:
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="font-semibold text-white">{o.valor_estimado != null ? brl(o.valor_estimado, 0) : "—"}</p>
-                    <p className="text-xs text-zinc-400">{STATUS_LABEL[o.status]} · prazo {dataBR(o.prazo_desejado)}</p>
+                    <p className="text-xs text-zinc-400">{STATUS_LABEL[o.status]} · entrega {dataBR(o.prazo_desejado)}</p>
                   </div>
                 </Link>
               ))}
