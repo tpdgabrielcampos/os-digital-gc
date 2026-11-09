@@ -291,7 +291,7 @@ export default function Quadro({ iniciais }: { iniciais: CartaoOS[] }) {
                       </span>
                       <span className="block text-zinc-400">
                         {STATUS_LABEL[c.status]} até {ddmm(lim.data)}
-                        {lim.motivo === "prazo final" ? " (prazo final do caso)" : ""} · {resumoTrabalho(c)}
+                        {lim.motivo === "prazo final" ? " (data de entrega)" : ""} · {resumoTrabalho(c)}
                       </span>
                     </a>
                   ))
@@ -390,7 +390,7 @@ function Cartao({ c, fantasma, onPointerDown }: { c: CartaoOS; fantasma?: boolea
           </span>
         )}
         {!entregue && c.prazo_desejado && (
-          <span className={`rounded-md px-1.5 py-0.5 ${atrasado ? "bg-rose-600 text-white" : "bg-white/10 text-zinc-300"}`}>prazo {ddmm(c.prazo_desejado)}</span>
+          <span className={`rounded-md px-1.5 py-0.5 ${atrasado ? "bg-rose-600 text-white" : "bg-white/10 text-zinc-300"}`}>entrega {ddmm(c.prazo_desejado)}</span>
         )}
         {c.arquivos > 0 && <span className="rounded-md bg-sky-500/15 px-1.5 py-0.5 text-sky-300">📎 {c.arquivos}</span>}
       </div>
