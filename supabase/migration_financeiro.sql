@@ -55,3 +55,10 @@ create table if not exists fin_historico (
 alter table fin_historico enable row level security;
 
 notify pgrst, 'reload schema';
+
+-- Comprovantes (foto/PDF da nota) ligados ao lançamento.
+alter table fin_lancamentos add column if not exists anexo text;
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('notas', 'notas', false, 10485760)
+on conflict (id) do nothing;
+notify pgrst, 'reload schema';
