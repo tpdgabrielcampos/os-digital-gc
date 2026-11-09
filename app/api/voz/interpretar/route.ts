@@ -34,6 +34,7 @@ REGRAS
 - Protocolo, Placa miorelaxante, Impressão de modelo e Impressão de biomodelo são por arcada: coloque todos os dentes da arcada citada (superior: ${SUP.join(", ")}; inferior: ${INF.join(", ")}).
 - "Sobre implante" = PSI, "sobre dente"/"dente natural"/"preparo" = PSD. Se o dentista não disser PSI ou PSD numa coroa/pôntico, ou não disser o material, NÃO invente: faça uma pergunta curta em "pergunta" e mantenha o que já entendeu.
 - Se faltar o dente, pergunte.
+- Só existe UMA data na OS: a DATA DE ENTREGA (campo "prazo"). Deixe "instalacao" sempre vazio.
 - Datas: converta para AAAA-MM-DD (ex.: "sexta que vem", "dia 20"). Datas sempre no futuro.
 - PRAZO MÍNIMO (dias corridos a partir de hoje): Design CAD de IBAR = 1 dia; demais Design CAD (smile design, coroa/faceta, protocolo) = 2 dias; todos os trabalhos de produção = 7 dias, independente da quantidade de peças. Se o dentista disser que é urgência, deixe "prazo" vazio e avise que ele deve marcar a caixa "É urgência" para combinar a data com o laboratório pelo WhatsApp. Vale o maior entre os trabalhos do caso. Se o dentista pedir um prazo menor, deixe "prazo" vazio e use "pergunta" para avisar a data mínima e pedir outra (ex.: "O prazo mínimo pra esse caso é dia 18. Pode ser?").
 - "Não", "nada", "sem observação" = deixar o campo vazio e seguir.
