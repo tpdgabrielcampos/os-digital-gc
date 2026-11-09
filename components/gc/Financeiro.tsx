@@ -68,6 +68,47 @@ export default function Financeiro(p: Props) {
   const [editando, setEditando] = useState<Partial<Lancamento> | null>(null);
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [lendo, setLendo] = useState(false);
+  const [repetirInicial, setRepetirInicial] = useState<{ vezes: number; modo: string } | null>(null);
+  const [lidoDaNota, setLidoDaNota] = useState<{ confianca: string; observacao: string } | null>(null);
+
+  async function lerNota(arquivo: File | undefined) {
+    if (!arquivo) return;
+    setLendo(true);
+    try {
+      const { tipo, dados } = await prepararArquivo(arquivo);
+      const r = await fetch("/api/admin/financeiro/nota", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo, dados, nome: arquivo.name }),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.ok) throw new Error(j?.erro || `erro ${r.status}`);
+      const n = j.nota;
+      const pagoNaHora = !n.vencimento && ["Pix", "Dinheiro", "Cartão de débito"].includes(n.forma_pagamento);
+      const extras = [n.itens, n.numero_documento ? `Doc. ${n.numero_documento}` : "", n.cnpj ? `CNPJ ${n.cnpj}` : ""].filter(Boolean).join(" · ");
+      setRepetirInicial(n.parcelas > 1 ? { vezes: n.parcelas, modo: "parcelas" } : null);
+      setLidoDaNota({ confianca: n.confianca, observacao: n.observacao });
+      setEditando({
+        tipo: "saida",
+        descricao: n.descricao || n.fornecedor || "Compra",
+        categoria: n.categoria,
+        valor: n.valor ?? undefined,
+        competencia: n.data,
+        vencimento: n.vencimento || n.data,
+        fornecedor: n.fornecedor || null,
+        forma_pagamento: n.forma_pagamento || null,
+        pago_em: pagoNaHora ? n.data : null,
+        nf_status: "nao_se_aplica",
+        observacoes: extras || null,
+        anexo: j.anexo ?? null,
+      });
+    } catch (e) {
+      setAviso({ ok: false, texto: `Nota: ${(e as Error).message}` });
+    } finally {
+      setLendo(false);
+    }
+  }
 
   useEffect(() => {
     if (!aviso) return;
@@ -115,8 +156,12 @@ export default function Financeiro(p: Props) {
               <span className="min-w-[150px] text-center text-sm font-semibold text-white">{nomeMes(mes)}</span>
               <button className="rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-white/10" onClick={() => setMes(somaMeses(mes, 1))} aria-label="Próximo mês">›</button>
             </div>
-            <button className="gc-btn gc-btn-secundario" onClick={() => setEditando(novo("entrada", mes))}>{I.mais} Entrada</button>
-            <button className="gc-btn gc-btn-principal" onClick={() => setEditando(novo("saida", mes))}>{I.mais} Saída</button>
+            <label className={`gc-btn gc-btn-secundario cursor-pointer ${lendo ? "pointer-events-none opacity-60" : ""}`} title="Tire uma foto ou escolha a nota (foto ou PDF)">
+              📷 {lendo ? "Lendo a nota…" : "Ler nota"}
+              <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { lerNota(e.target.files?.[0]); e.target.value = ""; }} />
+            </label>
+            <button className="gc-btn gc-btn-secundario" onClick={() => { setRepetirInicial(null); setLidoDaNota(null); setEditando(novo("entrada", mes)); }}>{I.mais} Entrada</button>
+            <button className="gc-btn gc-btn-principal" onClick={() => { setRepetirInicial(null); setLidoDaNota(null); setEditando(novo("saida", mes)); }}>{I.mais} Saída</button>
           </>
         }
       />
@@ -140,13 +185,15 @@ export default function Financeiro(p: Props) {
       {editando && (
         <EditorLancamento
           inicial={editando}
+          repetirInicial={repetirInicial}
+          lidoDaNota={lidoDaNota}
           dentistas={p.dentistas}
           os={p.os}
           ocupado={ocupado}
-          fechar={() => setEditando(null)}
+          fechar={() => { setEditando(null); setLidoDaNota(null); setRepetirInicial(null); }}
           salvar={async (lanc, repetir) => {
             const ok = await executar({ acao: "salvar", lanc, repetir }, lanc.id ? "Lançamento atualizado." : "Lançamento criado.");
-            if (ok) setEditando(null);
+            if (ok) { setEditando(null); setLidoDaNota(null); setRepetirInicial(null); }
           }}
         />
       )}
@@ -156,6 +203,36 @@ export default function Financeiro(p: Props) {
       )}
     </div>
   );
+}
+
+/** Foto: reduz para no máx. 1800px (JPEG) para subir rápido. PDF: vai como está (até 4 MB). */
+async function prepararArquivo(f: File): Promise<{ tipo: string; dados: string }> {
+  const paraBase64 = (blob: Blob) =>
+    new Promise<string>((ok, erro) => {
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result).split(",")[1] ?? "");
+      r.onerror = () => erro(new Error("não consegui ler o arquivo"));
+      r.readAsDataURL(blob);
+    });
+  if (f.type === "application/pdf") {
+    if (f.size > 4 * 1024 * 1024) throw new Error("PDF muito grande (máx. 4 MB).");
+    return { tipo: "application/pdf", dados: await paraBase64(f) };
+  }
+  if (!f.type.startsWith("image/")) throw new Error("Envie uma foto ou PDF.");
+  try {
+    const bmp = await createImageBitmap(f);
+    const esc = Math.min(1, 1800 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * esc);
+    c.height = Math.round(bmp.height * esc);
+    c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise<Blob | null>((ok) => c.toBlob(ok, "image/jpeg", 0.85));
+    if (!blob) throw new Error();
+    return { tipo: "image/jpeg", dados: await paraBase64(blob) };
+  } catch {
+    if (f.size > 4 * 1024 * 1024) throw new Error("Foto muito grande. Tente tirar de novo.");
+    return { tipo: f.type === "image/heic" ? "image/jpeg" : f.type, dados: await paraBase64(f) };
+  }
 }
 
 function novo(tipo: TipoLanc, mes: string): Partial<Lancamento> {
@@ -422,7 +499,11 @@ function Lancamentos({ lancamentos, dentistas, mes, nomeDentista, executar, setE
                 <tr key={l.id} className="border-b border-white/5 align-top">
                   <td className="py-2.5 pr-3 text-zinc-300">{dataCurta(base === "vencimento" ? l.vencimento : l.competencia)}</td>
                   <td className="py-2.5 pr-3">
-                    <p className="font-medium text-white">{l.descricao}{l.parcela ? <span className="ml-1 text-xs text-zinc-500">({l.parcela})</span> : null}</p>
+                    <p className="font-medium text-white">
+                      {l.descricao}
+                      {l.parcela ? <span className="ml-1 text-xs text-zinc-500">({l.parcela})</span> : null}
+                      {l.anexo ? <a href={`/api/admin/financeiro/nota?p=${encodeURIComponent(l.anexo)}`} target="_blank" rel="noreferrer" className="ml-2 text-xs text-sky-300 hover:underline" title="Ver comprovante">📎 nota</a> : null}
+                    </p>
                     <p className="text-xs text-zinc-500">{l.dentista_id ? nomeDentista[l.dentista_id] : l.fornecedor}{l.forma_pagamento ? ` · ${l.forma_pagamento}` : ""}</p>
                   </td>
                   <td className="py-2.5 pr-3 text-zinc-400">{l.categoria}</td>
@@ -871,6 +952,8 @@ function Limite({ rotulo, valor, limite }: { rotulo: string; valor: number; limi
 // ====================================================================== EDITOR
 function EditorLancamento({
   inicial,
+  repetirInicial,
+  lidoDaNota,
   dentistas,
   os,
   ocupado,
@@ -878,6 +961,8 @@ function EditorLancamento({
   salvar,
 }: {
   inicial: Partial<Lancamento>;
+  repetirInicial?: { vezes: number; modo: string } | null;
+  lidoDaNota?: { confianca: string; observacao: string } | null;
   dentistas: DentistaFin[];
   os: OSFin[];
   ocupado: boolean;
@@ -888,8 +973,8 @@ function EditorLancamento({
     ...inicial,
     valorTxt: inicial.valor != null ? Number(inicial.valor).toFixed(2).replace(".", ",") : "",
   });
-  const [vezes, setVezes] = useState("1");
-  const [modo, setModo] = useState("recorrente");
+  const [vezes, setVezes] = useState(String(repetirInicial?.vezes ?? 1));
+  const [modo, setModo] = useState(repetirInicial?.modo ?? "recorrente");
   const [pago, setPago] = useState(!!inicial.pago_em);
   const novo = !inicial.id;
   const entrada = l.tipo === "entrada";
@@ -917,6 +1002,7 @@ function EditorLancamento({
         nf_status: l.nf_status,
         nf_numero: l.nf_numero,
         observacoes: l.observacoes,
+        anexo: l.anexo,
       },
       novo && Number(vezes) > 1 ? { vezes: Number(vezes), modo } : null
     );
@@ -930,6 +1016,15 @@ function EditorLancamento({
           <button onClick={fechar} className="text-2xl leading-none text-zinc-500 hover:text-white">×</button>
         </div>
 
+        {lidoDaNota && (
+          <div className={`mb-4 rounded-xl px-4 py-3 text-sm ${lidoDaNota.confianca === "baixa" ? "bg-rose-500/10 text-rose-200" : "bg-emerald-500/10 text-emerald-200"}`}>
+            <strong>Preenchido a partir da nota.</strong> Confira valor, data e categoria antes de salvar.
+            {lidoDaNota.confianca === "baixa" && <span className="block text-xs">Leitura com pouca confiança{lidoDaNota.observacao ? `: ${lidoDaNota.observacao}` : ""}.</span>}
+          </div>
+        )}
+        {l.anexo && (
+          <a href={`/api/admin/financeiro/nota?p=${encodeURIComponent(l.anexo)}`} target="_blank" rel="noreferrer" className="mb-3 inline-block text-xs text-sky-300 hover:underline">📎 Ver comprovante</a>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           {novo && (
             <div className="gc-tabs sm:col-span-2">
