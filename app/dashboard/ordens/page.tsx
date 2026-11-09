@@ -84,7 +84,7 @@ export default async function Ordens({ searchParams }: { searchParams: { status?
                   <th className="px-3 py-2">OS / Paciente</th>
                   <th className="px-3 py-2">Dentista</th>
                   <th className="px-3 py-2">Trabalho</th>
-                  <th className="px-3 py-2">Prazo</th>
+                  <th className="px-3 py-2">Entrega</th>
                   <th className="px-3 py-2">Valor</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Recebida</th>
