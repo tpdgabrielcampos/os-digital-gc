@@ -277,7 +277,7 @@ function OSDentista({ id }: { id: string }) {
               <div><dt className="text-xs text-zinc-500">Status</dt><dd className="text-white">{editavel ? "Aguardando arquivos" : STATUS_LABEL[os.status]}</dd></div>
               <div><dt className="text-xs text-zinc-500">Dentes</dt><dd className="text-white">{os.dentes?.join(", ") || "—"}</dd></div>
               <div><dt className="text-xs text-zinc-500">Cor</dt><dd className="text-white">{os.cor_restauracao || "—"}</dd></div>
-              <div><dt className="text-xs text-zinc-500">Prazo</dt><dd className="text-white">{dataBR(os.prazo_desejado)}</dd></div>
+              <div><dt className="text-xs text-zinc-500">Data de entrega</dt><dd className="text-white">{dataBR(os.prazo_desejado)}</dd></div>
               <div><dt className="text-xs text-zinc-500">Valor estimado</dt><dd className="text-white">{os.valor_estimado != null ? brl(os.valor_estimado) : "a confirmar"}</dd></div>
               <div><dt className="text-xs text-zinc-500">Enviada em</dt><dd className="text-white">{dataBR(os.created_at)}</dd></div>
             </dl>
