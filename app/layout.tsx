@@ -29,6 +29,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
+      <head>
+        {/* Guarda o convite de instalação do app (o Chrome manda antes da página carregar). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__gcInstalar=e;window.dispatchEvent(new Event('gc-instalar'));});",
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-slate-50 text-slate-900">{children}</body>
     </html>
   );
