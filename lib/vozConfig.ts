@@ -22,8 +22,11 @@ export const CONFIG_ASSISTENTE_PADRAO: ConfigAssistente = {
   velocidade: 1,
   estabilidade: 0.5,
   estilo: 0,
-  pausa: 2000,
+  pausa: 1300,
 };
+
+// Valores das opções antigas (Rápido/Normal/Calmo) passam para os novos, mais ágeis.
+const PAUSA_ANTIGA: Record<number, number> = { 1200: 900, 2000: 1300, 3200: 2200 };
 
 export async function lerConfigAssistente(): Promise<ConfigAssistente> {
   const { data } = await supabaseAdmin.from("config_assistente").select("*").eq("id", 1).maybeSingle();
@@ -36,7 +39,7 @@ export async function lerConfigAssistente(): Promise<ConfigAssistente> {
     velocidade: Number(data.velocidade) || 1,
     estabilidade: Number(data.estabilidade ?? 0.45),
     estilo: Number(data.estilo ?? 0.3),
-    pausa: Number(data.pausa) || 2000,
+    pausa: PAUSA_ANTIGA[Number(data.pausa)] ?? (Number(data.pausa) || 1300),
   };
 }
 
@@ -46,6 +49,71 @@ export function premiumAtivo(c: ConfigAssistente) {
 }
 
 const BUCKET = "voz-cache";
+
+const chaveAudio = (texto: string, c: ConfigAssistente) =>
+  createHash("sha256").update([c.voz_id, c.modelo, c.velocidade, c.estabilidade, c.estilo, texto].join("|")).digest("hex") + ".mp3";
+
+const corpoEleven = (texto: string, c: ConfigAssistente) =>
+  JSON.stringify({
+    text: texto,
+    model_id: c.modelo,
+    voice_settings: {
+      stability: c.estabilidade,
+      similarity_boost: 0.75,
+      style: c.estilo,
+      use_speaker_boost: true,
+      speed: Math.min(1.2, Math.max(0.7, c.velocidade)),
+    },
+  });
+
+/**
+ * Igual ao gerarAudio, mas já vai mandando o áudio enquanto a ElevenLabs gera
+ * (o navegador começa a tocar antes de a frase ficar pronta). Guarda no cache no fim.
+ */
+export async function audioEmFluxo(texto: string, c: ConfigAssistente): Promise<{ corpo?: ReadableStream<Uint8Array> | ArrayBuffer; erro?: string; status?: number }> {
+  const chave = process.env.ELEVENLABS_API_KEY;
+  if (!chave || !c.voz_id) return { erro: "voz premium não configurada", status: 409 };
+  const caminho = chaveAudio(texto, c);
+  const { data: guardado } = await supabaseAdmin.storage.from(BUCKET).download(caminho);
+  if (guardado) return { corpo: await guardado.arrayBuffer() };
+
+  const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(c.voz_id)}/stream?output_format=mp3_44100_64`, {
+    method: "POST",
+    headers: { "xi-api-key": chave, "Content-Type": "application/json", Accept: "audio/mpeg" },
+    body: corpoEleven(texto, c),
+  });
+  if (!r.ok || !r.body) {
+    const detalhe = (await r.text().catch(() => "")).slice(0, 300);
+    console.error("[voz/falar] elevenlabs stream", r.status, detalhe);
+    return { erro: `ElevenLabs respondeu ${r.status}: ${detalhe}`, status: 502 };
+  }
+  const leitor = r.body.getReader();
+  const partes: Uint8Array[] = [];
+  const corpo = new ReadableStream<Uint8Array>({
+    async pull(ctrl) {
+      const { done, value } = await leitor.read();
+      if (value) {
+        partes.push(value);
+        ctrl.enqueue(value);
+      }
+      if (done) {
+        const tudo = new Uint8Array(partes.reduce((n, p) => n + p.length, 0));
+        let i = 0;
+        for (const p of partes) {
+          tudo.set(p, i);
+          i += p.length;
+        }
+        // guarda para a próxima vez (se falhar, tudo bem)
+        await supabaseAdmin.storage.from(BUCKET).upload(caminho, tudo, { contentType: "audio/mpeg", upsert: true }).catch(() => null);
+        ctrl.close();
+      }
+    },
+    cancel() {
+      leitor.cancel().catch(() => {});
+    },
+  });
+  return { corpo };
+}
 
 /** Gera (ou busca do cache) o mp3 de uma frase com a voz premium. */
 export async function gerarAudio(texto: string, c: ConfigAssistente): Promise<{ audio?: ArrayBuffer; erro?: string; status?: number }> {
