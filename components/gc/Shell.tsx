@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { I } from "@/components/gc/ui";
+import InstalarApp from "@/components/gc/InstalarApp";
 
 export interface ItemMenu {
   href: string;
@@ -84,6 +85,7 @@ export default function Shell({
         </nav>
 
         <div className="mt-auto flex flex-col gap-3">
+          <InstalarApp />
           {rodape}
           <div className="gc-card flex items-center gap-3 p-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg gc-barra text-sm font-bold text-white">
@@ -112,7 +114,10 @@ export default function Shell({
             {m.rotulo}
           </Link>
         ))}
-        {sair && <span className="ml-auto flex shrink-0 items-center px-2">{sair}</span>}
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          <InstalarApp compacto />
+          {sair && <span className="flex items-center px-2">{sair}</span>}
+        </span>
       </header>
 
       <main className="relative z-10 px-4 py-6 sm:px-6 lg:ml-64 lg:px-8 lg:py-8">
