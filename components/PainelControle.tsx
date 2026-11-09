@@ -147,7 +147,7 @@ export default function PainelControle({
 
       <div className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-zinc-300">
-          Prazo de entrega {urgente && <span className="ml-1 rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-bold text-white">⚠️ URGENTE</span>}
+          Data de entrega {urgente && <span className="ml-1 rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-bold text-white">⚠️ URGENTE</span>}
         </span>
         <div className="flex gap-2">
           <input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} className="gc-input flex-1 [color-scheme:dark]" />
