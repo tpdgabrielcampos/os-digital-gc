@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { SEPARADOR, todasAsFolhas } from "@/lib/catalogo";
+import { CATALOGO, SEPARADOR, todasAsFolhas } from "@/lib/catalogo";
 import { ORDEM_DENTES } from "@/lib/odontograma";
 import { ESTADO_VAZIO, type EstadoVoz, type EtapaVoz, type RespostaVoz } from "@/lib/voz";
 
@@ -12,43 +12,54 @@ export const maxDuration = 30;
 
 const ETAPAS: EtapaVoz[] = ["paciente", "trabalhos", "mais_trabalhos", "cor", "datas", "observacoes", "resumo"];
 const SERVICOS = todasAsFolhas().map((c) => c.join(SEPARADOR));
-const SUP = ORDEM_DENTES.filter((d) => d[0] === "1" || d[0] === "2");
-const INF = ORDEM_DENTES.filter((d) => d[0] === "3" || d[0] === "4");
+const NOMES = new Set(todasAsFolhas().flat());
 
 function hojeSP() {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
-function instrucoes() {
-  return `Você é o assistente de voz de um laboratório de prótese dentária (OS digital GC).
-O dentista está montando uma ordem de serviço falando, uma etapa por vez. A fala vem do reconhecimento de voz do celular e pode ter erros de transcrição: interprete com bom senso odontológico (ex.: "zircônia", "dissilicato", "E-max" = Dissilicato, "PSI"/"sobre implante", "PSD"/"sobre dente", "onze" = dente 11).
+function arvore(nos = CATALOGO, nivel = 0): string {
+  return nos.map((n) => `${"  ".repeat(nivel)}- ${n.nome}${n.descricao ? ` (${n.descricao})` : ""}\n${n.filhos ? arvore(n.filhos, nivel + 1) : ""}`).join("");
+}
 
-Hoje é ${hojeSP()} (fuso de São Paulo).
+// Parte fixa do prompt (fica em cache na Anthropic: responde mais rápido e gasta menos).
+const CONHECIMENTO = `Você é o assistente de voz de um laboratório de prótese dentária (OS digital GC) e entende de prótese como um técnico experiente.
+O dentista monta a ordem de serviço falando. A fala vem do reconhecimento de voz do celular e pode ter erros de transcrição: interprete com bom senso odontológico.
 
-SERVIÇOS VÁLIDOS (use exatamente um destes textos em "servico"):
-${SERVICOS.map((s) => `- ${s}`).join("\n")}
+CATÁLOGO DO LABORATÓRIO (árvore; cada trabalho é um caminho até uma folha):
+${arvore()}
+GLOSSÁRIO
+- "Sobre implante", "em cima do implante", "parafusada", "cimentada no implante" = PSI. "Sobre dente", "dente natural", "preparo", "dente preparado" = PSD.
+- "E-max", "emax", "cerâmica pura", "dissilicato de lítio" = Dissilicato. "Zirconia", "zirc", "zircônia monolítica" = Zircônia. "PMMA", "provisório", "temporária" = Resina provisória. "Nanocerâmica" = Resina híbrida.
+- "Lente", "lente de contato", "laminado" = Faceta. "Ponte"/"prótese fixa de 3 elementos" = coroas nos pilares + pôntico no meio (ex.: ponte do 14 ao 16 = Coroa no 14 e 16, Pôntico no 15).
+- "Protocolo", "híbrida sobre implantes", "All-on-4" = Protocolo (por arcada). "Barra", "IBAR" = só no Design CAD.
+- "Placa", "placa de bruxismo", "miorrelaxante" = Placa miorelaxante (por arcada).
+- "Encerar", "enceramento", "wax-up" = Enceramento diagnóstico (só dentes; não tem material).
+- "Ajuste de cor", "maquiagem", "caracterização" = Ajuste de cor (só dentes).
+- "Modelo", "imprimir modelo" = Impressão de modelo. "Biomodelo" = Impressão de biomodelo (por arcada).
+- "Guia cirúrgica", "planejamento" = Planejamento de implante (Guiado ou Orientado).
+- "Só o design", "só o desenho", "só o CAD", "só o projeto" = Design CAD (sem fresagem nem finalização).
+- Dentes em notação FDI (11–18, 21–28, 31–38, 41–48). "Onze" = 11, "vinte e um" = 21. Superior = 1x e 2x, inferior = 3x e 4x. Lado direito do paciente: superior 1x, inferior 4x; esquerdo: superior 2x, inferior 3x.
+- Cor na escala Vita (A1, A2, A3, A3.5, B1, BL2…).
+- PRAZO MÍNIMO (dias corridos a partir de hoje): Design CAD de IBAR = 1 dia; demais Design CAD = 2 dias; trabalhos de produção = 7 dias.
 
 REGRAS
-- Dentes em notação FDI (11–18, 21–28, 31–38, 41–48). "Superior" = arcada de cima (1x e 2x), "inferior" = de baixo (3x e 4x).
-- "Design CAD" = só o desenho, sem fresagem/finalização (o dentista pode dizer "só o desenho", "só o design", "só o CAD", "só projeto"). Nele: Protocolo e IBAR são por arcada (todos os dentes da arcada); "IBAR meia arcada" é um lado da arcada (use os dentes do lado citado, ex.: superior direito = 11 a 18); Smile design e Coroa / faceta vão nos dentes citados.
-- Protocolo, Placa miorelaxante, Impressão de modelo e Impressão de biomodelo são por arcada: coloque todos os dentes da arcada citada (superior: ${SUP.join(", ")}; inferior: ${INF.join(", ")}).
-- "Sobre implante" = PSI, "sobre dente"/"dente natural"/"preparo" = PSD. Se o dentista não disser PSI ou PSD numa coroa/pôntico, ou não disser o material, NÃO invente: faça uma pergunta curta em "pergunta" e mantenha o que já entendeu.
-- Se faltar o dente, pergunte.
-- Só existe UMA data na OS: a DATA DE ENTREGA (campo "prazo"). Deixe "instalacao" sempre vazio.
-- Datas: converta para AAAA-MM-DD (ex.: "sexta que vem", "dia 20"). Datas sempre no futuro.
-- PRAZO MÍNIMO (dias corridos a partir de hoje): Design CAD de IBAR = 1 dia; demais Design CAD (smile design, coroa/faceta, protocolo) = 2 dias; todos os trabalhos de produção = 7 dias, independente da quantidade de peças. Se o dentista disser que é urgência, deixe "prazo" vazio e avise que ele deve marcar a caixa "É urgência" para combinar a data com o laboratório pelo WhatsApp. Vale o maior entre os trabalhos do caso. Se o dentista pedir um prazo menor, deixe "prazo" vazio e use "pergunta" para avisar a data mínima e pedir outra (ex.: "O prazo mínimo pra esse caso é dia 18. Pode ser?").
-- "Não", "nada", "sem observação" = deixar o campo vazio e seguir.
-- Nomes de pessoas: escreva com iniciais maiúsculas, sem "o paciente é".
-- Cor: escala Vita (A1, A2, A3, A3.5, B1, BL2…). "A três e meio" = A3.5.
-- Na etapa "resumo": se ele confirmar ("confirmar", "tá certo", "pode enviar", "sim"), devolva confirmado=true. Se pedir correção, aplique a correção no estado e devolva confirmado=false com uma "fala" dizendo o que mudou.
-- "fala" é SÓ uma confirmação curta do que entendeu (até 6 palavras, ex.: "Beleza, anotado.", "Show, coroa no 11."). NUNCA faça pergunta na "fala" e nunca anuncie a próxima etapa: o sistema faz a próxima pergunta sozinho. Pergunta só vai em "pergunta", e apenas quando faltar algo na etapa atual.
-- "fala" e "pergunta" são lidas em voz alta: tom informal e descontraído, de brasileiro, como um colega do laboratório conversando (ex.: "Beleza, anotado.", "Show, coroa no 11 e 21.", "Fechou."). Frases curtas (no máximo 12 palavras), sem formalidade, sem emojis, sem repetir tudo o que o dentista disse — só o essencial. Varie as palavras.
+- NUNCA invente o que o dentista não disse: se ele não falou PSI/PSD ou o material, deixe de fora (o sistema pergunta depois).
+- Responda SÓ com o JSON pedido, sem texto antes ou depois.`;
 
-RESPONDA SÓ COM UM JSON, sem texto antes ou depois, neste formato:
-{"estado": {"paciente": "", "trabalhos": [{"servico": "", "dentes": [""], "retrabalho": false}], "cor": "", "prazo": "", "instalacao": "", "observacoes": ""},
- "pergunta": null, "fala": "", "semMais": false, "confirmado": false}
-"estado" é o estado COMPLETO da OS depois desta fala (copie o que já existia e altere só o que a fala muda; em "trabalhos" e "mais_trabalhos" ACRESCENTE novos trabalhos aos que já existem).
-"semMais" = true só na etapa "mais_trabalhos" quando ele disser que não há mais trabalhos.`;
+/** Instruções da tarefa de cada etapa. */
+function tarefa(etapa: EtapaVoz) {
+  if (etapa === "trabalhos" || etapa === "mais_trabalhos")
+    return `TAREFA: liste os trabalhos que o dentista pediu nesta fala.
+Formato: {"trabalhos": [{"nos": ["PSI", "Coroa", "Zircônia"], "dentes": ["11", "21"], "retrabalho": false}]}
+"nos" = nomes EXATOS do catálogo que ele disse ou que estão implícitos com certeza (ex.: "enceramento" = ["Enceramento diagnóstico"]; "coroa de emax" = ["Coroa", "Dissilicato"], sem PSI/PSD porque ele não disse). "dentes" = só os que ele citou (vazio se não citou). Se não for pedido de trabalho nenhum, devolva {"trabalhos": []}.`;
+  if (etapa === "datas")
+    return `TAREFA: data de entrega pedida. Hoje é ${hojeSP()} (fuso de São Paulo).
+Formato: {"prazo": "AAAA-MM-DD", "urgente": false}. Se for urgência, {"prazo": "", "urgente": true}. Se não der para saber a data, {"prazo": "", "urgente": false}. Datas sempre no futuro.`;
+  return `TAREFA: o dentista ouviu o resumo da OS e pediu uma correção. Hoje é ${hojeSP()}.
+Aplique a correção no estado e devolva o estado COMPLETO. Em "trabalhos", "servico" é o caminho completo do catálogo unido por " – " (ex.: "PSI – Coroa – Zircônia").
+Formato: {"estado": {"paciente": "", "trabalhos": [{"servico": "", "dentes": [""], "retrabalho": false}], "cor": "", "prazo": "", "instalacao": "", "observacoes": ""}, "fala": "frase curta dizendo o que mudou", "confirmado": false}
+Se ele só confirmou, devolva o mesmo estado com "confirmado": true.`;
 }
 
 /** Garante que só entra serviço do catálogo e dente válido. */
@@ -73,6 +84,7 @@ function limpar(e: Partial<EstadoVoz> | undefined, anterior: EstadoVoz): EstadoV
     prazo: data(e.prazo ?? anterior.prazo),
     instalacao: data(e.instalacao ?? anterior.instalacao),
     observacoes: s(e.observacoes ?? anterior.observacoes, 1000),
+    urgente: !!(e.urgente ?? anterior.urgente),
   };
 }
 
@@ -106,9 +118,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<RespostaVoz>>
   }
 
   const pergunta = typeof body?.pergunta === "string" ? body.pergunta.slice(0, 300) : "";
-  const conteudo = `ETAPA: ${etapa}
+  const conteudo = `${tarefa(etapa)}
+
 PERGUNTA FEITA: ${pergunta}
-ESTADO ATUAL: ${JSON.stringify(anterior)}
+ESTADO ATUAL DA OS: ${JSON.stringify(anterior)}
 FALA DO DENTISTA: """${fala}"""`;
 
   try {
@@ -117,8 +130,8 @@ FALA DO DENTISTA: """${fala}"""`;
       headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || "claude-haiku-5-5",
-        max_tokens: 2000,
-        system: instrucoes(),
+        max_tokens: 900,
+        system: [{ type: "text", text: CONHECIMENTO, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: conteudo }],
       }),
     });
@@ -131,12 +144,27 @@ FALA DO DENTISTA: """${fala}"""`;
     const saida = primeiroJson(texto);
     if (!saida) return NextResponse.json({ ok: false, erro: "Não entendi. Pode repetir?" }, { status: 502 });
 
+    if (etapa === "trabalhos" || etapa === "mais_trabalhos") {
+      const lista = Array.isArray(saida.trabalhos) ? saida.trabalhos : [];
+      return NextResponse.json({
+        ok: true,
+        itens: lista
+          .map((t: { nos?: unknown; dentes?: unknown; retrabalho?: unknown }) => ({
+            nos: (Array.isArray(t?.nos) ? t.nos : []).map(String).filter((n: string) => NOMES.has(n)),
+            dentes: (Array.isArray(t?.dentes) ? t.dentes : []).map(String).filter((d: string) => ORDEM_DENTES.includes(d)),
+            retrabalho: !!t?.retrabalho,
+          }))
+          .filter((t: { nos: string[] }) => t.nos.length > 0),
+      });
+    }
+    if (etapa === "datas") {
+      const prazo = typeof saida.prazo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(saida.prazo) ? saida.prazo : "";
+      return NextResponse.json({ ok: true, prazo, urgente: !!saida.urgente });
+    }
     return NextResponse.json({
       ok: true,
       estado: limpar(saida.estado, anterior),
-      pergunta: typeof saida.pergunta === "string" && saida.pergunta.trim() ? saida.pergunta.trim() : null,
-      fala: typeof saida.fala === "string" ? saida.fala.slice(0, 400) : "",
-      semMais: !!saida.semMais,
+      fala: typeof saida.fala === "string" ? saida.fala.slice(0, 300) : "",
       confirmado: !!saida.confirmado,
     });
   } catch (err) {
