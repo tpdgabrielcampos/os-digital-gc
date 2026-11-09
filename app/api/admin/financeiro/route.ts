@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
         nf_status: ["pendente", "emitida", "nao_se_aplica"].includes(l.nf_status) ? l.nf_status : tipo === "saida" ? "nao_se_aplica" : "pendente",
         nf_numero: texto(l.nf_numero, 40),
         observacoes: texto(l.observacoes, 1000),
+        ...(l.anexo !== undefined ? { anexo: texto(l.anexo, 300) } : {}),
       };
 
       if (l.id) {
