@@ -21,6 +21,7 @@ export interface Lancamento {
   nf_status: NfStatus;
   nf_numero: string | null;
   observacoes: string | null;
+  anexo?: string | null;
   criado_em: string;
 }
 
