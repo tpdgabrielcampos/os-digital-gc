@@ -360,6 +360,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
   }
 
   const semPremium = useRef(false);
+  const falhasVoz = useRef(0);
 
   // Voz premium (ElevenLabs). Pede todos os pedaços juntos e toca um atrás do outro;
   // o texto aparece na tela junto com a voz. Se falhar, cai para a voz do navegador.
@@ -372,12 +373,23 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
     for (let i = 0; i < partes.length; i++) {
       let item: Blob | Response;
       try {
-        item = await itens[i];
+        try {
+          item = await itens[i];
+        } catch {
+          // falhou (ex.: servidor "acordando"): tenta mais uma vez antes de desistir
+          if (!valendo()) return;
+          item = await pedirAudio(partes[i]);
+        }
+        falhasVoz.current = 0;
       } catch {
         if (!valendo()) return;
+        // só esta fala sai na voz do navegador; a voz premium volta na próxima
+        // (desliga de vez só se falhar 3 vezes seguidas)
+        falhasVoz.current++;
         premium.current = false;
-        semPremium.current = true;
         falarRef.current(partes.slice(i), depois, true);
+        if (falhasVoz.current < 3) premium.current = true;
+        else semPremium.current = true;
         setHistorico((h) => [...h, ...partes.slice(i).map((t) => ({ de: "assistente" as const, texto: t }))]);
         return;
       }
