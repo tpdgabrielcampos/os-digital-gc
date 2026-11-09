@@ -57,7 +57,7 @@ export async function PUT(req: NextRequest) {
     velocidade: num(b.velocidade, 0.7, 1.4, 1),
     estabilidade: num(b.estabilidade, 0, 1, 0.45),
     estilo: num(b.estilo, 0, 1, 0.3),
-    pausa: Math.round(num(b.pausa, 800, 5000, 2000)),
+    pausa: Math.round(num(b.pausa, 600, 5000, 1300)),
     atualizado_em: new Date().toISOString(),
   };
   const { error } = await supabaseAdmin.from("config_assistente").upsert(dados);
