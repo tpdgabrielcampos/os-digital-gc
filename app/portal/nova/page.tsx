@@ -100,6 +100,7 @@ function NovaOS() {
       prazo,
       instalacao: "",
       observacoes,
+      urgente,
     };
   }
 
@@ -109,6 +110,7 @@ function NovaOS() {
     setRetrabalho(Object.fromEntries(e.trabalhos.filter((t) => t.retrabalho).map((t) => [t.servico, true])));
     setCorCaso(e.cor);
     setPrazo(e.prazo);
+    if (e.urgente) setUrgente(true);
     setObservacoes(e.observacoes);
     setPreenchidoPorVoz(true);
     setTimeout(() => {
