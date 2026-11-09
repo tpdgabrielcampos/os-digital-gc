@@ -59,7 +59,6 @@ function NovaOS() {
   const [prazo, setPrazo] = useState("");
   const [urgente, setUrgente] = useState(false);
   const [arquivosDepois, setArquivosDepois] = useState(false);
-  const [instalacao, setInstalacao] = useState("");
   const [corCaso, setCorCaso] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [marcacoes, setMarcacoes] = useState<Marcacoes>({});
@@ -99,7 +98,7 @@ function NovaOS() {
       trabalhos: agruparMarcacoes(marcacoes).map((g) => ({ servico: g.chave, dentes: g.dentes, retrabalho: !!retrabalho[g.chave] })),
       cor: corCaso,
       prazo,
-      instalacao,
+      instalacao: "",
       observacoes,
     };
   }
@@ -110,7 +109,6 @@ function NovaOS() {
     setRetrabalho(Object.fromEntries(e.trabalhos.filter((t) => t.retrabalho).map((t) => [t.servico, true])));
     setCorCaso(e.cor);
     setPrazo(e.prazo);
-    setInstalacao(e.instalacao);
     setObservacoes(e.observacoes);
     setPreenchidoPorVoz(true);
     setTimeout(() => {
@@ -166,6 +164,7 @@ function NovaOS() {
     if (!paciente.trim()) faltando.push("nome do paciente");
     if (grupos.length === 0) faltando.push("pelo menos um trabalho no odontograma");
     if (casoPedeCor && !corCaso.trim()) faltando.push("cor final do caso");
+    if (!urgente && !prazo) faltando.push("data de entrega (ou marque “É urgência”)");
     if (prazoCurto) {
       setErro(`O prazo mínimo para esse caso é ${dataBRCurta(prazoMinimo)} (${diasMinimos} ${diasMinimos > 1 ? "dias" : "dia"}). Escolha essa data ou uma depois.`);
       return;
@@ -207,7 +206,6 @@ function NovaOS() {
           material: materiais.join(", ") || null,
           cor_restauracao: casoPedeCor ? corCaso.trim() : null,
           prazo_desejado: urgente ? null : prazo || null,
-          instalacao_agendada: instalacao || null,
           plataforma_envio: enviaveis.length ? "Portal GC" : null,
           observacoes: observacoes.trim() || null,
           valor_estimado: temPrecos ? orc.total : null,
@@ -359,8 +357,8 @@ function NovaOS() {
                 Nome do paciente *
                 <input className="gc-input" value={paciente} onChange={(e) => setPaciente(e.target.value)} disabled={enviando} />
               </label>
-              <label className="flex flex-col gap-1.5 text-sm text-zinc-300">
-                Prazo desejado
+              <label className="flex flex-col gap-1.5 text-sm text-zinc-300 sm:col-span-2">
+                {urgente ? "Data de entrega" : "Data de entrega *"}
                 <input
                   type="date"
                   className={`gc-input [color-scheme:dark] ${prazoCurto ? "!border-rose-400/70" : ""}`}
@@ -373,13 +371,9 @@ function NovaOS() {
                   {urgente
                     ? "Urgência: a data será combinada com o laboratório pelo WhatsApp."
                     : grupos.length
-                    ? `Prazo mínimo para este caso: ${dataBRCurta(prazoMinimo)} (${diasMinimos} ${diasMinimos > 1 ? "dias corridos" : "dia"})`
-                    : "Design: 2 dias (IBAR: 1 dia) · Demais trabalhos: 7 dias corridos"}
+                    ? `Entrega a partir de ${dataBRCurta(prazoMinimo)} (prazo mínimo de ${diasMinimos} ${diasMinimos > 1 ? "dias corridos" : "dia"} para este caso)`
+                    : "Prazos mínimos: Design 2 dias (IBAR 1 dia) · demais trabalhos 7 dias corridos"}
                 </span>
-              </label>
-              <label className="flex flex-col gap-1.5 text-sm text-zinc-300">
-                Data da instalação (se já marcada)
-                <input type="date" className="gc-input [color-scheme:dark]" value={instalacao} onChange={(e) => setInstalacao(e.target.value)} disabled={enviando} />
               </label>
               <label className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm sm:col-span-2 ${urgente ? "border-rose-400/50 bg-rose-500/10 text-rose-100" : "border-white/10 text-zinc-300"}`}>
                 <input type="checkbox" className="mt-1" checked={urgente} onChange={(e) => setUrgente(e.target.checked)} disabled={enviando} />
