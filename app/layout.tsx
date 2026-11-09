@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "@fontsource/sora/400.css";
 import "@fontsource/sora/500.css";
 import "@fontsource/sora/600.css";
@@ -9,6 +9,17 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "OS digital GC — Ordens de Serviço",
   description: "Envio e controle de ordens de serviço — OS digital GC",
+  applicationName: "GC Lab",
+  appleWebApp: { capable: true, title: "GC Lab", statusBarStyle: "black-translucent" },
+  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
+  formatDetection: { telephone: false },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
