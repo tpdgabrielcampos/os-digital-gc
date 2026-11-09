@@ -73,8 +73,7 @@ export default async function PedidoDetalhePage({ params }: { params: { id: stri
               <Item rotulo="Dentes" valor={pedido.dentes?.join(", ") || "—"} />
               <Item rotulo="Material" valor={pedido.material ?? "—"} />
               <Item rotulo="Cor final" valor={pedido.cor_restauracao ?? "—"} />
-              <Item rotulo="Prazo desejado" valor={dataBR(pedido.prazo_desejado)} />
-              <Item rotulo="Instalação agendada" valor={dataBR(pedido.instalacao_agendada)} />
+              <Item rotulo="Data de entrega" valor={dataBR(pedido.prazo_desejado)} />
               <Item rotulo="Valor estimado" valor={pedido.valor_estimado != null ? brl(pedido.valor_estimado) : "—"} />
             </dl>
             {pedido.observacoes && (
