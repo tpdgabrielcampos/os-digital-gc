@@ -144,7 +144,7 @@ function MinhasOS() {
                 {aberta === l.id && (
                   <div className="mt-3 grid gap-3 rounded-xl bg-white/[0.03] p-4 text-sm sm:grid-cols-3">
                     <p><span className="block text-xs text-zinc-500">Dentes</span>{l.dentes.join(", ") || "—"}</p>
-                    <p><span className="block text-xs text-zinc-500">Prazo desejado</span>{dataBR(l.prazo_desejado)}</p>
+                    <p><span className="block text-xs text-zinc-500">Data de entrega</span>{dataBR(l.prazo_desejado)}</p>
                     <p><span className="block text-xs text-zinc-500">Valor estimado</span>{l.valor_estimado != null ? brl(l.valor_estimado) : "a confirmar"}</p>
                     <div className="sm:col-span-3">
                       <span className="block text-xs text-zinc-500">Arquivos enviados</span>
