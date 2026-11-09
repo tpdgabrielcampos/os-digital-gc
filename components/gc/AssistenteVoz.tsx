@@ -323,8 +323,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
     const partes = [`Então ficou assim: paciente ${e.paciente || "sem nome"}.`];
     for (const t of e.trabalhos) partes.push(`${t.servico.split(SEPARADOR).join(", ")}, ${listaDentes(t.dentes)}${t.retrabalho ? ", retrabalho" : ""}.`);
     if (e.cor) partes.push(`Cor ${e.cor}.`);
-    if (e.prazo) partes.push(`Prazo ${dataFalada(e.prazo)}.`);
-    if (e.instalacao) partes.push(`Instalação ${dataFalada(e.instalacao)}.`);
+    if (e.prazo) partes.push(`Entrega ${dataFalada(e.prazo)}.`);
     if (e.observacoes) partes.push(`Observação: ${e.observacoes}.`);
     const g = agruparMarcacoes(estadoParaMarcacoes(e));
     const o = orcamento(g, precos);
@@ -528,8 +527,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
                 )}
               </div>
               <Item rotulo="Cor" valor={estado.cor} />
-              <Item rotulo="Prazo" valor={estado.prazo && dataFalada(estado.prazo)} />
-              <Item rotulo="Instalação" valor={estado.instalacao && dataFalada(estado.instalacao)} />
+              <Item rotulo="Entrega" valor={estado.prazo && dataFalada(estado.prazo)} />
               <Item rotulo="Observações" valor={estado.observacoes} />
               {temPrecos && grupos.length > 0 && <Item rotulo="Valor estimado" valor={brl(orc.total) + (orc.semPreco ? " + a combinar" : "")} />}
             </dl>
