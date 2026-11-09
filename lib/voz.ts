@@ -22,7 +22,7 @@ export type EtapaVoz = "paciente" | "trabalhos" | "mais_trabalhos" | "cor" | "da
 /** Perguntas faladas em cada etapa (tom informal; sorteia uma para não soar repetitivo). */
 export const PERGUNTAS: Record<EtapaVoz, string[]> = {
   paciente: ["E aí, tudo certo? Bora montar essa OS. Qual o nome do paciente?", "Opa! Vamos lá. Me fala o nome do paciente."],
-  trabalhos: ["Beleza. E o que a gente vai fazer, em quais dentes?", "Show. Qual é o trabalho e em quais dentes?"],
+  trabalhos: ["Qual trabalho vamos realizar?"],
   mais_trabalhos: ["Mais alguma coisa nesse caso? Se não tiver, fala não.", "Tem mais algum trabalho? Se não, é só falar não."],
   cor: ["E a cor final, qual vai ser?", "Qual cor a gente segue?"],
   datas: ["Pra quando você precisa da entrega?", "Qual a data de entrega? Se for urgência, é só falar urgência."],
