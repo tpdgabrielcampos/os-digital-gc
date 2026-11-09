@@ -242,9 +242,9 @@ export default function ConfigVoz() {
                 Esperar o dentista terminar de falar
                 <div className="gc-tabs">
                   {[
-                    [1200, "Rápido"],
-                    [2000, "Normal"],
-                    [3200, "Calmo"],
+                    [900, "Rápido"],
+                    [1300, "Normal"],
+                    [2200, "Calmo"],
                   ].map(([ms, nome]) => (
                     <button key={ms} type="button" onClick={() => set({ pausa: ms as number })} className={`gc-tab flex-1 ${config.pausa === ms ? "gc-tab-ativa" : ""}`}>
                       {nome}
