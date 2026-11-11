@@ -318,8 +318,11 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
 
   if (modo === "lateral") {
     return (
-      <section className="mt-6 flex flex-col items-center gap-3" aria-label="Assistente GC">
-        <MascoteGC humor={humor} variante="corpo" tamanho={200} />
+      <section className="flex flex-1 flex-col items-center justify-center gap-4 py-6" aria-label="Assistente GC">
+        <div className="relative flex justify-center">
+          <div className="absolute bottom-1 h-6 w-40 rounded-[50%] bg-sky-400/10 blur-md" aria-hidden="true" />
+          <MascoteGC humor={humor} variante="corpo" tamanho={300} />
+        </div>
         {microfone}
         {balaoVisivel && (
           <div className="relative w-full">

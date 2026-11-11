@@ -59,10 +59,10 @@ export default function Shell({
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-white/5 bg-black/70 px-4 py-6 backdrop-blur lg:flex overflow-y-auto">
         <Link href={menu[0].href} className="flex justify-center px-2 pt-2" title="Gabriel Campos">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-gabriel-campos.png" alt="Gabriel Campos" className="h-28 w-auto invert" />
+          <img src="/logo-gabriel-campos.png" alt="Gabriel Campos" className="h-36 w-auto invert" />
         </Link>
 
-        <nav className="mt-10 flex flex-col gap-1">
+        <nav className="mt-8 flex flex-col gap-1">
           {menu.map((m) => {
             const marcado = m.href === ativo;
             return (
