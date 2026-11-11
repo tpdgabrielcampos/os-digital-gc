@@ -1,0 +1,104 @@
+/* Mascote GC: render 3D em duas camadas (cabeça e corpo) + olhos de LED em SVG */
+
+.recorte {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.figura {
+  position: absolute;
+  aspect-ratio: 1438 / 2576;
+}
+
+.camada {
+  position: absolute;
+  inset: 0;
+}
+
+.camada img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.camada svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.corpo {
+  transform-origin: 50% 92%;
+  animation: respirar 3.6s ease-in-out infinite;
+}
+
+.seguir,
+.cabeca {
+  transform-origin: 50% 42.3%;
+}
+
+.seguir {
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.olhar {
+  transition: transform 0.25s ease-out;
+}
+
+/* ----- movimento da cabeça por humor ----- */
+.normal .cabeca { animation: balancar 4.5s ease-in-out infinite; }
+.feliz .cabeca { animation: inclinarFeliz 1.8s ease-in-out infinite; }
+.animado .cabeca { animation: pulinho 0.9s ease-in-out infinite; }
+.empolgado .cabeca { animation: agitar 0.42s ease-in-out infinite; }
+.empolgado .corpo { animation: amassar 0.42s ease-in-out infinite; }
+.amei .cabeca { animation: amor 1.6s ease-in-out infinite; }
+.piscadinha .cabeca { transform: rotate(-6deg); transition: transform 0.3s; }
+.falando .cabeca { animation: acenar 0.5s ease-in-out infinite; }
+.ouvindo .cabeca { transform: rotate(-4deg) translateY(-4px); transition: transform 0.3s; }
+.pensando .cabeca { animation: pensar 2.4s ease-in-out infinite; }
+
+@keyframes respirar { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.008); } }
+@keyframes balancar { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
+@keyframes inclinarFeliz { 0%, 100% { transform: rotate(5deg); } 50% { transform: rotate(6.5deg) translateY(-6px); } }
+@keyframes pulinho { 0%, 100% { transform: translateY(0); } 30% { transform: translateY(-5%) rotate(-2deg); } 60% { transform: translateY(0) rotate(1deg); } 75% { transform: translateY(-2%); } }
+@keyframes agitar { 0%, 100% { transform: rotate(0) translateY(-1%); } 25% { transform: rotate(-7deg) translateY(-4%); } 75% { transform: rotate(7deg) translateY(-4%); } }
+@keyframes amor { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg) translateY(-1.5%); } }
+@keyframes acenar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1%) rotate(0.6deg); } }
+@keyframes pensar { 0%, 100% { transform: rotate(6deg); } 50% { transform: rotate(8deg) translateY(-1%); } }
+@keyframes amassar { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.985) scaleX(1.01); } }
+
+/* ----- partes dos olhos e da boca ----- */
+.palpebra {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.09s ease-in;
+}
+.piscando { transform: scaleY(0.08); }
+
+.forma { transform-box: fill-box; transform-origin: center; }
+.pop { animation: pop 0.9s ease-in-out infinite; }
+.estrela { animation: estrela 0.6s ease-in-out infinite; }
+.coracao { animation: bater 1.1s ease-in-out infinite; }
+.arco { animation: arco 1.8s ease-in-out infinite; }
+.barra { transform-box: fill-box; transform-origin: center; animation: equalizar 0.45s ease-in-out infinite; }
+.ponto { animation: ponto 1.2s ease-in-out infinite; }
+
+@keyframes pop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@keyframes estrela { 0% { transform: scale(0.9) rotate(0); } 50% { transform: scale(1.18) rotate(18deg); } 100% { transform: scale(0.9) rotate(0); } }
+@keyframes bater { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.2); } 30% { transform: scale(1); } 45% { transform: scale(1.14); } }
+@keyframes arco { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes equalizar { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+@keyframes ponto { 0%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .corpo, .cabeca, .pop, .estrela, .coracao, .arco, .barra, .ponto { animation: none !important; }
+}

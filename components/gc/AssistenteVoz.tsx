@@ -29,6 +29,7 @@ import {
   variosTrabalhos,
 } from "@/lib/vozRoteiro";
 import type { Marcacoes } from "@/components/OdontogramaTrabalhos";
+import MascoteGC, { type HumorMascote } from "@/components/gc/MascoteGC";
 
 // Assistente por voz da Nova OS. Pergunta etapa por etapa (fala em voz alta),
 // escuta a resposta (reconhecimento de voz do navegador), manda para a API
@@ -150,6 +151,10 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
   const [historico, setHistorico] = useState<Mensagem[]>([]);
   const [semMicrofone, setSemMicrofone] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  // reações do mascote: comemora cada trabalho anotado e a OS concluída
+  const [reacao, setReacao] = useState<HumorMascote | null>(null);
+  const [concluido, setConcluido] = useState(false);
+  const qtdTrabalhos = useRef(inicial.trabalhos.length);
   const ultimaFala = useRef("");
   const geracao = useRef(0); // cada fala nova invalida a anterior
   const reconhecedor = useRef<Reconhecedor | null>(null);
@@ -175,6 +180,16 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
   const grupos = useMemo(() => agruparMarcacoes(estadoParaMarcacoes(estado)), [estado]);
   const orc = useMemo(() => orcamento(grupos, precos), [grupos, precos]);
   const temPrecos = Object.keys(precos).length > 0;
+
+  useEffect(() => {
+    const n = estado.trabalhos.length;
+    const aumentou = n > qtdTrabalhos.current;
+    qtdTrabalhos.current = n;
+    if (!aumentou) return;
+    setReacao("animado");
+    const t = setTimeout(() => setReacao(null), 1800);
+    return () => clearTimeout(t);
+  }, [estado.trabalhos.length]);
 
   useEffect(() => {
     fimDaLista.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -707,6 +722,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
         case "resumo": {
           if (ehSim(fala)) {
             falar(e.urgente ? "Fechou! Preenchi a OS. Como é urgência, depois de enviar me chama no WhatsApp pra combinar a data." : "Fechou! Preenchi a OS pra você. Agora é só anexar os arquivos e enviar.", "nada");
+            setConcluido(true);
             onAplicar(e);
             return;
           }
@@ -716,6 +732,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
           if (!j.ok || !j.estado) return falar(j.erro || "Não entendi. Pode repetir?", "ouvir");
           if (j.confirmado) {
             falar("Fechou! Preenchi a OS pra você. Agora é só anexar os arquivos e enviar.", "nada");
+            setConcluido(true);
             onAplicar(j.estado);
             return;
           }
@@ -761,6 +778,11 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
           ? "from-[#f2a43a] to-[#e0649c] animate-pulse"
           : "from-zinc-600 to-zinc-800";
 
+  const humor: HumorMascote = concluido
+    ? "empolgado"
+    : reacao ??
+      (status === "ouvindo" ? "ouvindo" : status === "falando" ? "falando" : status === "pensando" ? "pensando" : historico.length === 0 ? "feliz" : "normal");
+
   const rotuloStatus =
     status === "ouvindo" ? "Ouvindo… pode falar" : status === "falando" ? "Falando…" : status === "pensando" ? "Entendendo…" : historico.length ? "Toque no microfone para responder" : "Toque em começar";
 
@@ -768,9 +790,12 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-label="Assistente por voz">
       <div className="gc-card flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-b-none sm:rounded-b-[1.25rem]">
         <div className="flex items-center justify-between gap-3 border-b border-white/5 px-5 py-4">
-          <div>
-            <p className="gc-eyebrow">Assistente por voz</p>
-            <p className="text-sm text-zinc-400">Responda falando. No fim eu leio o resumo para você confirmar.</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <MascoteGC humor={humor} tamanho={92} className="rounded-2xl bg-gradient-to-b from-white/[0.07] to-white/[0.02]" />
+            <div className="min-w-0">
+              <p className="gc-eyebrow">Assistente por voz</p>
+              <p className="text-sm text-zinc-400">Responda falando. No fim eu leio o resumo para você confirmar.</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setMudo((m) => !m)} className="gc-chip" title="Ligar/desligar a voz do assistente">
