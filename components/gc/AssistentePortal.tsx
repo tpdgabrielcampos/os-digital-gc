@@ -56,6 +56,8 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
   const token = sessao.access_token;
   const primeiroNome = (dentista.nome || "").split(" ").filter((p) => !/^dra?\.?$/i.test(p))[0] || "";
   const [aberto, setAberto] = useState(false);
+  // na barra lateral o balão só aparece durante a conversa e some sozinho depois
+  const [balaoVisivel, setBalaoVisivel] = useState(false);
   const [status, setStatus] = useState<Status>("parado");
   const [balao, setBalao] = useState(primeiroNome ? `Oi, ${primeiroNome}! Toque no microfone e me peça um paciente ou tire uma dúvida técnica.` : "Oi! Toque no microfone e me peça um paciente ou tire uma dúvida técnica.");
   const [detalhe, setDetalhe] = useState("");
@@ -90,6 +92,12 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
       window.speechSynthesis?.cancel();
     };
   }, []);
+
+  useEffect(() => {
+    if (!balaoVisivel || status !== "parado") return;
+    const t = setTimeout(() => setBalaoVisivel(false), detalhe ? 45000 : 12000);
+    return () => clearTimeout(t);
+  }, [balaoVisivel, status, detalhe]);
 
   const reagir = useCallback((h: HumorMascote, ms = 2200) => {
     setReacao(h);
@@ -141,6 +149,7 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
   );
 
   async function perguntar(fala: string) {
+    setBalaoVisivel(true);
     setStatus("pensando");
     setBalao(`“${fala}”`);
     setDetalhe("");
@@ -217,6 +226,7 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
         setBalao("Não ouvi nada. Toque no microfone e fale de novo.");
       }
     };
+    setBalaoVisivel(true);
     setBalao("Pode falar, estou ouvindo…");
     setDetalhe("");
     setStatus("ouvindo");
@@ -308,11 +318,26 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
 
   if (modo === "lateral") {
     return (
-      <section className="mt-6 flex flex-col items-stretch gap-3" aria-label="Assistente GC">
-        <div className="flex justify-center">
-          <MascoteGC humor={humor} variante="corpo" tamanho={200} />
-        </div>
-        {conversa}
+      <section className="mt-6 flex flex-col items-center gap-3" aria-label="Assistente GC">
+        <MascoteGC humor={humor} variante="corpo" tamanho={200} />
+        {microfone}
+        {balaoVisivel && (
+          <div className="relative w-full">
+            <p className="rounded-2xl bg-white/[0.07] px-3.5 py-2.5 pr-8 text-sm leading-snug text-white" aria-live="polite">
+              {parcial ? <span className="italic text-zinc-300">{parcial}</span> : balao}
+            </p>
+            {detalhe && (
+              <>
+                <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-line rounded-2xl bg-white/[0.04] px-3.5 py-2.5 text-[13px] leading-relaxed text-zinc-300">{detalhe}</p>
+                <p className="mt-1.5 text-[11px] leading-snug text-zinc-500">Orientação geral; não substitui a avaliação clínica.</p>
+              </>
+            )}
+            <button type="button" onClick={() => setBalaoVisivel(false)} className="absolute right-2 top-1.5 text-lg leading-none text-zinc-500 hover:text-white" aria-label="Fechar resposta">
+              ×
+            </button>
+          </div>
+        )}
+        {semMicrofone && <p className="text-center text-xs text-zinc-500">Microfone indisponível neste navegador.</p>}
       </section>
     );
   }
