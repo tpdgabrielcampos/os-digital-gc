@@ -6,6 +6,7 @@ import { Botao, I, PageHeader, Panel, StatCard, Vazio } from "@/components/gc/ui
 import { supabaseBrowser } from "@/lib/supabaseClient";
 import { STATUS_LABEL, type StatusPedido } from "@/lib/types";
 import { brl, numeroOS, tamanhoLegivel } from "@/lib/gc";
+import { CHAVE_BUSCA, EVENTO_BUSCA, type BuscaAssistente } from "@/components/gc/AssistentePortal";
 
 export default function PortalPage() {
   return (
@@ -66,6 +67,25 @@ function MinhasOS() {
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
   const [aba, setAba] = useState<"andamento" | "entregues">("andamento");
   const [aberta, setAberta] = useState<string | null>(null);
+  const [busca, setBusca] = useState<BuscaAssistente | null>(null);
+
+  // Resultado de busca vindo do assistente (na hora, ou guardado de outra página).
+  useEffect(() => {
+    const aplicar = (b: BuscaAssistente) => {
+      setBusca(b);
+      setAberta(b.ids.length === 1 ? b.ids[0] : null);
+      try {
+        sessionStorage.removeItem(CHAVE_BUSCA);
+      } catch {}
+    };
+    try {
+      const guardada = sessionStorage.getItem(CHAVE_BUSCA);
+      if (guardada) aplicar(JSON.parse(guardada));
+    } catch {}
+    const ouvir = (ev: Event) => aplicar((ev as CustomEvent<BuscaAssistente>).detail);
+    window.addEventListener(EVENTO_BUSCA, ouvir);
+    return () => window.removeEventListener(EVENTO_BUSCA, ouvir);
+  }, []);
 
   useEffect(() => {
     supabaseBrowser
@@ -79,7 +99,7 @@ function MinhasOS() {
   const todas = linhas ?? [];
   const andamento = todas.filter((l) => l.status !== "entregue");
   const entregues = todas.filter((l) => l.status === "entregue");
-  const mostradas = aba === "andamento" ? andamento : entregues;
+  const mostradas = busca ? todas.filter((l) => busca.ids.includes(l.id)) : aba === "andamento" ? andamento : entregues;
   const primeiroNome = (dentista.nome || "").split(" ").filter((p) => !/^dra?\.?$/i.test(p))[0] || "";
 
   return (
@@ -106,6 +126,12 @@ function MinhasOS() {
       <Panel
         eyebrow="Casos"
         title={
+          busca ? (
+            <span className="mt-1 flex flex-wrap items-center gap-3 !text-base">
+              <span>Busca do assistente: {busca.rotulo} ({mostradas.length})</span>
+              <button onClick={() => setBusca(null)} className="gc-chip text-xs">Limpar busca</button>
+            </span>
+          ) : (
           <span className="gc-tabs mt-1 !text-base">
             <button onClick={() => setAba("andamento")} className={`gc-tab ${aba === "andamento" ? "gc-tab-ativa" : ""}`}>
               Em andamento ({andamento.length})
@@ -114,12 +140,13 @@ function MinhasOS() {
               Entregues ({entregues.length})
             </button>
           </span>
+          )
         }
       >
         {linhas === null ? (
           <Vazio>Carregando…</Vazio>
         ) : mostradas.length === 0 ? (
-          <Vazio>{aba === "andamento" ? "Nenhum caso em andamento. Clique em “Nova OS” para enviar o primeiro." : "Nenhum caso entregue ainda."}</Vazio>
+          <Vazio>{busca ? "O assistente não encontrou casos para essa busca." : aba === "andamento" ? "Nenhum caso em andamento. Clique em “Nova OS” para enviar o primeiro." : "Nenhum caso entregue ainda."}</Vazio>
         ) : (
           <div className="divide-y divide-white/5">
             {mostradas.map((l) => (

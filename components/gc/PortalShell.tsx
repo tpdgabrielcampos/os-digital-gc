@@ -7,6 +7,7 @@ import { supabaseBrowser } from "@/lib/supabaseClient";
 import type { Dentista } from "@/lib/gc";
 import Shell, { MENU_DENTISTA } from "@/components/gc/Shell";
 import { I } from "@/components/gc/ui";
+import AssistentePortal from "@/components/gc/AssistentePortal";
 
 // Tudo que fica dentro do portal do dentista precisa de login. Este componente
 // confere a sessão do Supabase, carrega o cadastro do dentista e desenha a
@@ -99,6 +100,7 @@ export default function PortalShell({ ativo, children }: { ativo: string; childr
         ativo={ativo}
         usuario={ctx.dentista.nome || ctx.dentista.email || "Dentista"}
         papel={ctx.dentista.clinica || "Dentista"}
+        lateral={<AssistentePortal modo="lateral" />}
         sair={
           <button onClick={sair} title="Sair" className="text-slate-400 hover:text-white">
             {I.sair}
@@ -106,6 +108,7 @@ export default function PortalShell({ ativo, children }: { ativo: string; childr
         }
       >
         {children}
+        <AssistentePortal modo="flutuante" />
       </Shell>
     </DentistaCtx.Provider>
   );

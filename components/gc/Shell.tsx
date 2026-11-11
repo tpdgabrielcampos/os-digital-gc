@@ -37,6 +37,7 @@ export default function Shell({
   rodape,
   sair,
   largo,
+  lateral,
   children,
 }: {
   menu: ItemMenu[];
@@ -48,12 +49,14 @@ export default function Shell({
   sair?: ReactNode;
   /** Usa a largura toda da tela (quadro de etapas). */
   largo?: boolean;
+  /** Conteúdo extra da barra lateral, abaixo do menu (ex.: assistente do dentista). */
+  lateral?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="gc-app min-h-screen text-slate-200">
       <div className="gc-ceu" aria-hidden />
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-white/5 bg-black/70 px-4 py-6 backdrop-blur lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-white/5 bg-black/70 px-4 py-6 backdrop-blur lg:flex overflow-y-auto">
         <Link href={menu[0].href} className="flex justify-center px-2 pt-2" title="Gabriel Campos">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-gabriel-campos.png" alt="Gabriel Campos" className="h-28 w-auto invert" />
@@ -84,7 +87,9 @@ export default function Shell({
           })}
         </nav>
 
-        <div className="mt-auto flex flex-col gap-3">
+        {lateral}
+
+        <div className="mt-auto flex flex-col gap-3 pt-6">
           <InstalarApp />
           {rodape}
           <div className="gc-card flex items-center gap-3 p-3">
