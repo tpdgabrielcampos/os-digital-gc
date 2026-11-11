@@ -36,7 +36,7 @@ const BUSTO = { altura: 0.42, topo: 0.08, largura: 0.72, esquerda: 0.17 };
 
 const PISCA: HumorMascote[] = ["normal", "animado", "ouvindo"];
 
-export default function MascoteGC({ humor = "normal", tamanho = 120, variante = "busto", seguirMouse = true, cor = "#FF4A1C", className = "" }: Props) {
+export default function MascoteGC({ humor = "normal", tamanho = 120, variante = "busto", seguirMouse = true, cor = "#38BDF8", className = "" }: Props) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const raiz = useRef<HTMLDivElement>(null);
   const [piscando, setPiscando] = useState(false);
@@ -119,10 +119,10 @@ export default function MascoteGC({ humor = "normal", tamanho = 120, variante = 
                   <rect width="12" height="7" fill={cor} />
                 </pattern>
                 <pattern id={p("rosa")} width="12" height="11" patternUnits="userSpaceOnUse">
-                  <rect width="12" height="7" fill="#FF3D7A" />
+                  <rect width="12" height="7" fill={cor} />
                 </pattern>
                 <pattern id={p("ouro")} width="12" height="11" patternUnits="userSpaceOnUse">
-                  <rect width="12" height="7" fill="#FFC02E" />
+                  <rect width="12" height="7" fill={cor} />
                 </pattern>
                 <filter id={p("brilho")} x="-80%" y="-80%" width="260%" height="260%">
                   <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="b" />
@@ -173,14 +173,14 @@ function Olho({ humor, lado, led, rosa, ouro }: { humor: HumorMascote; lado: "e"
       return (
         <g className={`${s.forma} ${s.pop}`}>
           <rect x="-58" y="-76" width="116" height="152" rx="34" fill={led} />
-          <rect x="6" y="-60" width="28" height="28" rx="8" fill="#FFE9DF" />
+          <rect x="6" y="-60" width="28" height="28" rx="8" fill="#E0F6FF" />
         </g>
       );
     case "ouvindo":
       return (
         <g>
           <rect x="-56" y="-72" width="112" height="144" rx="30" fill={led} />
-          <rect x="6" y="-58" width="26" height="26" rx="8" fill="#FFE9DF" />
+          <rect x="6" y="-58" width="26" height="26" rx="8" fill="#E0F6FF" />
         </g>
       );
     case "pensando":
