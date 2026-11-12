@@ -15,7 +15,8 @@ type PedidoGC = Pedido & {
   pedido_arquivos: PedidoArquivo[];
 };
 
-export default async function PedidoDetalhePage({ params }: { params: { id: string } }) {
+export default async function PedidoDetalhePage({ params, searchParams }: { params: { id: string }; searchParams?: { editada?: string } }) {
+  const editada = searchParams?.editada === "1";
   const { data } = await supabaseAdmin
     .from("pedidos")
     .select("*, pedido_fotos(*), pedido_arquivos(*)")
@@ -44,8 +45,16 @@ export default async function PedidoDetalhePage({ params }: { params: { id: stri
     <AdminShell ativo="/dashboard/ordens">
       <Link href="/dashboard/ordens" className="text-sm text-zinc-400 hover:text-white">← Voltar às ordens de serviço</Link>
 
+      {editada && (
+        <p className="mt-4 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">✓ Alterações salvas.</p>
+      )}
       <PageHeader
         eyebrow={numeroOS(pedido.numero)}
+        actions={
+          <Link href={`/pedido/${pedido.id}/editar`} className="gc-btn gc-btn-principal">
+            ✏️ Editar OS
+          </Link>
+        }
         title={pedido.paciente_nome}
         subtitle={
           <span className="inline-flex flex-wrap items-center gap-3">
