@@ -14,6 +14,7 @@ export const MENU_LAB: ItemMenu[] = [
   { href: "/dashboard", rotulo: "Visão geral", icone: I.casa },
   { href: "/dashboard/quadro", rotulo: "Quadro de etapas", icone: I.grafico },
   { href: "/dashboard/ordens", rotulo: "Ordens de serviço", icone: I.pasta },
+  { href: "/dashboard/lancar", rotulo: "Lançar OS", icone: I.mais },
   { href: "/dashboard/dentistas", rotulo: "Dentistas", icone: I.pessoas },
   { href: "/dashboard/financeiro", rotulo: "Financeiro", icone: I.cartao },
   { href: "/dashboard/precos", rotulo: "Tabelas de preço", icone: I.etiqueta },
