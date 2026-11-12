@@ -55,6 +55,25 @@ export async function POST(req: NextRequest) {
   const { data: pedido } = await supabaseAdmin.from("pedidos").select("id, dentista_id").eq("id", pedidoId).maybeSingle();
   if (!pedido) return NextResponse.json({ ok: false, erro: "OS não encontrada." }, { status: 404 });
 
+  // 1b) edição da OS pelo laboratório (os dados do dentista não mudam)
+  if (acao === "editar") {
+    const dados: Record<string, unknown> = {};
+    for (const c of CAMPOS) if (c !== "os_id" && c !== "plataforma_envio" && body?.dados && c in body.dados) dados[c] = body.dados[c];
+    if ("paciente_nome" in dados && !(typeof dados.paciente_nome === "string" && dados.paciente_nome.trim())) {
+      return NextResponse.json({ ok: false, erro: "Falta o nome do paciente." }, { status: 400 });
+    }
+    if (dados.prazo_desejado != null && !(typeof dados.prazo_desejado === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dados.prazo_desejado))) {
+      return NextResponse.json({ ok: false, erro: "Data inválida." }, { status: 400 });
+    }
+    let { error } = await supabaseAdmin.from("pedidos").update(dados).eq("id", pedido.id);
+    if (error && /urgente|aguardando_arquivos/i.test(error.message)) {
+      const { urgente: _u, aguardando_arquivos: _a, ...resto } = dados;
+      ({ error } = await supabaseAdmin.from("pedidos").update(resto).eq("id", pedido.id));
+    }
+    if (error) return NextResponse.json({ ok: false, erro: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
   // 2) link para o navegador subir o arquivo direto no Storage
   if (acao === "link_arquivo") {
     const nome = typeof body?.nome === "string" ? body.nome : "arquivo";
