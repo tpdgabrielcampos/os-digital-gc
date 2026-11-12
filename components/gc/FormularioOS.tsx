@@ -59,6 +59,21 @@ export interface PropsFormularioOS {
   precosIniciais?: Record<string, number>;
   /** Modo laboratório: volta para a escolha do dentista. */
   onTrocarDentista?: () => void;
+  /** Painel do laboratório: editar uma OS que já existe (formulário já vem preenchido). */
+  edicao?: EdicaoOS;
+}
+
+export interface EdicaoOS {
+  pedidoId: string;
+  numero: number | null;
+  paciente: string;
+  prazo: string;
+  urgente: boolean;
+  aguardando: boolean;
+  cor: string;
+  observacoes: string;
+  marcacoes: Marcacoes;
+  retrabalho: Record<string, boolean>;
 }
 
 async function apiLancar(corpo: Record<string, unknown>) {
@@ -81,16 +96,17 @@ async function enviarArquivoLab(file: File, pedidoId: string): Promise<{ ok: tru
   }
 }
 
-export default function FormularioOS({ dentista, nomeTabela, modo, token = "", precosIniciais, onTrocarDentista }: PropsFormularioOS) {
+export default function FormularioOS({ dentista, nomeTabela, modo, token = "", precosIniciais, onTrocarDentista, edicao }: PropsFormularioOS) {
   const lab = modo === "laboratorio";
-  const [paciente, setPaciente] = useState("");
-  const [prazo, setPrazo] = useState("");
-  const [urgente, setUrgente] = useState(false);
-  const [arquivosDepois, setArquivosDepois] = useState(false);
-  const [corCaso, setCorCaso] = useState("");
-  const [observacoes, setObservacoes] = useState("");
-  const [marcacoes, setMarcacoes] = useState<Marcacoes>({});
-  const [retrabalho, setRetrabalho] = useState<Record<string, boolean>>({});
+  const editando = !!edicao;
+  const [paciente, setPaciente] = useState(edicao?.paciente ?? "");
+  const [prazo, setPrazo] = useState(edicao?.prazo ?? "");
+  const [urgente, setUrgente] = useState(edicao?.urgente ?? false);
+  const [arquivosDepois, setArquivosDepois] = useState(edicao?.aguardando ?? false);
+  const [corCaso, setCorCaso] = useState(edicao?.cor ?? "");
+  const [observacoes, setObservacoes] = useState(edicao?.observacoes ?? "");
+  const [marcacoes, setMarcacoes] = useState<Marcacoes>(edicao?.marcacoes ?? {});
+  const [retrabalho, setRetrabalho] = useState<Record<string, boolean>>(edicao?.retrabalho ?? {});
   const [arquivos, setArquivos] = useState<Arq[]>([]);
   const [precos, setPrecos] = useState<Record<string, number>>(precosIniciais ?? {});
   const [estado, setEstado] = useState<"editando" | "enviando" | "pronto">("editando");
@@ -168,7 +184,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
   const diasMinimos = grupos.length ? Math.max(...grupos.map((g) => prazoMinimoDias(g.caminho))) : 0;
   const prazoMinimo = dataDaquiA(diasMinimos);
   // Urgência: sem data obrigatória — o prazo é combinado com o laboratório pelo WhatsApp.
-  const prazoCurto = !urgente && !!prazo && grupos.length > 0 && prazo < prazoMinimo;
+  const prazoCurto = !editando && !urgente && !!prazo && grupos.length > 0 && prazo < prazoMinimo;
   const temPrecos = Object.keys(precos).length > 0;
 
   function adicionarArquivos(lista: FileList | null) {
@@ -195,7 +211,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
     if (!paciente.trim()) faltando.push("nome do paciente");
     if (grupos.length === 0) faltando.push("pelo menos um trabalho no odontograma");
     if (casoPedeCor && !corCaso.trim()) faltando.push("cor final do caso");
-    if (!urgente && !prazo) faltando.push("data de entrega (ou marque “É urgência”)");
+    if (!urgente && !prazo && !editando) faltando.push("data de entrega (ou marque “É urgência”)");
     if (prazoCurto) {
       setErro(`O prazo mínimo para esse caso é ${dataBRCurta(prazoMinimo)} (${diasMinimos} ${diasMinimos > 1 ? "dias" : "dia"}). Escolha essa data ou uma depois.`);
       return;
@@ -204,6 +220,8 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
       setErro(`Falta preencher: ${faltando.join(", ")}.`);
       return;
     }
+
+    if (edicao) return salvarEdicao(edicao);
 
     // Urgência: abre a aba do WhatsApp já no clique (senão o navegador bloqueia)
     // e só coloca o link depois que a OS foi criada, com o número dela.
@@ -297,6 +315,55 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
     }
   }
 
+  /** Edição pelo laboratório: grava as mudanças, sobe arquivos novos e volta para a OS. */
+  async function salvarEdicao(ed: EdicaoOS) {
+    setEstado("enviando");
+    try {
+      const varios = grupos.length > 1;
+      const trabalhos = grupos.map((g) => {
+        const dentes = varios ? ` (dente${g.dentes.length > 1 ? "s" : ""} ${g.dentes.join(", ")})` : "";
+        return g.chave + dentes + (retrabalho[g.chave] ? " (Retrabalho)" : "");
+      });
+      const materiais = Array.from(new Set(grupos.map((g) => materialDoCaminho(g.caminho)).filter((m): m is string => !!m)));
+      await apiLancar({
+        acao: "editar",
+        pedidoId: ed.pedidoId,
+        dados: {
+          paciente_nome: paciente.trim(),
+          tipo_trabalho: trabalhos.join(SEPARADOR_TRABALHOS),
+          dentes: ORDEM_DENTES.filter((d) => marcacoes[d]),
+          material: materiais.join(", ") || null,
+          cor_restauracao: casoPedeCor ? corCaso.trim() : null,
+          prazo_desejado: urgente ? null : prazo || null,
+          observacoes: observacoes.trim() || null,
+          // sem tabela de preço, mantém o valor que já estava na OS
+          ...(temPrecos ? { valor_estimado: orc.total } : {}),
+          urgente,
+          aguardando_arquivos: arquivosDepois,
+        },
+      });
+      let falhas = 0;
+      for (const a of arquivos.filter((x) => x.estado !== "erro" && x.estado !== "enviado")) {
+        marcarArq(a.id, { estado: "enviando" });
+        const r = await enviarArquivoLab(a.file, ed.pedidoId);
+        if (r.ok) marcarArq(a.id, { estado: "enviado" });
+        else {
+          falhas++;
+          marcarArq(a.id, { estado: "erro", erro: r.erro });
+        }
+      }
+      if (falhas) {
+        setErro(`Alterações salvas, mas ${falhas} arquivo(s) não subiram. Tente de novo.`);
+        setEstado("editando");
+        return;
+      }
+      window.location.href = `/pedido/${ed.pedidoId}?editada=1`;
+    } catch (err) {
+      setErro(`Não consegui salvar. Detalhe: ${mensagemDeErro(err)}`);
+      setEstado("editando");
+    }
+  }
+
   if (estado === "pronto" && resultado) {
     return (
       <div className="gc-card gc-hero mx-auto mt-10 w-full max-w-xl p-10 text-center">
@@ -381,15 +448,19 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
     )}
     <form onSubmit={enviar} className="flex flex-col gap-6">
       <PageHeader
-        eyebrow={lab ? "Lançar OS pelo laboratório" : "Nova ordem de serviço"}
-        title={lab ? `OS para ${dentista.nome || "o dentista"}` : "Enviar um caso"}
+        eyebrow={edicao ? `Editar ${numeroOS(edicao.numero)}` : lab ? "Lançar OS pelo laboratório" : "Nova ordem de serviço"}
+        title={edicao ? edicao.paciente || "OS" : lab ? `OS para ${dentista.nome || "o dentista"}` : "Enviar um caso"}
         subtitle={
-          lab
+          edicao
+            ? `OS de ${dentista.nome || "dentista"}${dentista.clinica ? ` (${dentista.clinica})` : ""}. Mude o que precisar e salve; arquivos novos são somados aos que já estão na OS.`
+            : lab
             ? `A OS fica no nome dele${dentista.clinica ? ` (${dentista.clinica})` : ""} e aparece em “Minhas OS” no portal. Valores pela tabela dele.`
             : "Marque os dentes, escolha o trabalho e anexe os arquivos. Você vê o valor estimado antes de enviar."
         }
         actions={
-          lab ? (
+          edicao ? (
+            <Link href={`/pedido/${edicao.pedidoId}`} className="gc-btn gc-btn-secundario">Cancelar</Link>
+          ) : lab ? (
             <Botao variante="secundario" onClick={onTrocarDentista} disabled={enviando}>Trocar dentista</Botao>
           ) : (
           <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -425,13 +496,15 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
                   type="date"
                   className={`gc-input [color-scheme:dark] ${prazoCurto ? "!border-rose-400/70" : ""}`}
                   value={urgente ? "" : prazo}
-                  min={grupos.length ? prazoMinimo : dataDaquiA(0)}
+                  min={editando ? undefined : grupos.length ? prazoMinimo : dataDaquiA(0)}
                   onChange={(e) => setPrazo(e.target.value)}
                   disabled={enviando || urgente}
                 />
                 <span className={`text-xs ${prazoCurto ? "text-rose-300" : "text-zinc-500"}`}>
                   {urgente
                     ? "Urgência: a data será combinada com o laboratório pelo WhatsApp."
+                    : editando
+                    ? "Edição pelo laboratório: pode escolher qualquer data."
                     : grupos.length
                     ? `Entrega a partir de ${dataBRCurta(prazoMinimo)} (prazo mínimo de ${diasMinimos} ${diasMinimos > 1 ? "dias corridos" : "dia"} para este caso)`
                     : "Prazos mínimos: Design 2 dias (IBAR 1 dia) · demais trabalhos 7 dias corridos"}
@@ -590,8 +663,8 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
             </p>
             {erro && <p className="mt-4 rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{erro}</p>}
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <Botao type="submit" disabled={enviando}>{enviando ? "Enviando…" : lab ? "Lançar ordem de serviço" : "Enviar ordem de serviço"}</Botao>
-              <Link href={lab ? "/dashboard" : "/portal"} className="text-sm text-zinc-400 hover:text-white">Cancelar</Link>
+              <Botao type="submit" disabled={enviando}>{enviando ? (editando ? "Salvando…" : "Enviando…") : editando ? "Salvar alterações" : lab ? "Lançar ordem de serviço" : "Enviar ordem de serviço"}</Botao>
+              <Link href={edicao ? `/pedido/${edicao.pedidoId}` : lab ? "/dashboard" : "/portal"} className="text-sm text-zinc-400 hover:text-white">Cancelar</Link>
             </div>
           </Panel>
         </div>
