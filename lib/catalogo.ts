@@ -174,3 +174,17 @@ export function quantidadeCobrada(caminho: string[], dentes: string[]): number {
   const inf = dentes.some((d) => d[0] === "3" || d[0] === "4");
   return (sup ? 1 : 0) + (inf ? 1 : 0);
 }
+
+/**
+ * Trabalhos feitos sobre a arcada inteira que NÃO ocupam os dentes no odontograma
+ * (podem vir junto com coroas, facetas etc. na mesma OS): placa e impressões de modelo.
+ */
+const TRABALHOS_DE_ARCADA = new Set(["Placa miorelaxante", "Impressão de modelo", "Impressão de biomodelo"]);
+export const ehTrabalhoDeArcada = (caminho: string[]) => TRABALHOS_DE_ARCADA.has(caminho[0]);
+
+/** "superior", "inferior" ou "superior e inferior", a partir dos dentes. */
+export function arcadasDosDentes(dentes: string[]) {
+  const sup = dentes.some((d) => d[0] === "1" || d[0] === "2");
+  const inf = dentes.some((d) => d[0] === "3" || d[0] === "4");
+  return sup && inf ? "superior e inferior" : sup ? "superior" : inf ? "inferior" : "";
+}
