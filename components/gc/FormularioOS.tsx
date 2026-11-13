@@ -8,13 +8,13 @@ import Link from "next/link";
 import OdontogramaTrabalhos, { COR_CATEGORIA, type Marcacoes } from "@/components/OdontogramaTrabalhos";
 import { Botao, I, PageHeader, Panel } from "@/components/gc/ui";
 import { supabaseBrowser } from "@/lib/supabaseClient";
-import { ehPontico, materialDoCaminho, nomeUnidade, pedeCor, prazoMinimoDias } from "@/lib/catalogo";
-import { ORDEM_DENTES, agruparMarcacoes } from "@/lib/odontograma";
+import { arcadasDosDentes, ehPontico, materialDoCaminho, nomeUnidade, pedeCor, prazoMinimoDias } from "@/lib/catalogo";
+import { ORDEM_DENTES, agruparMarcacoes, type Grupo } from "@/lib/odontograma";
 import { orcamento } from "@/lib/precos";
 import { MAX_ARQUIVO, brl, numeroOS, tamanhoLegivel } from "@/lib/gc";
 import { ACEITOS, acaoOS, enviarArquivoOS, mensagemDeErro } from "@/lib/arquivosOS";
 import type { Dentista } from "@/lib/gc";
-import AssistenteVoz, { estadoParaMarcacoes } from "@/components/gc/AssistenteVoz";
+import AssistenteVoz, { estadoParaArcadas, estadoParaMarcacoes } from "@/components/gc/AssistenteVoz";
 import type { EstadoVoz } from "@/lib/voz";
 
 const PREF_VOZ = "gc-assistente-voz";
@@ -73,6 +73,8 @@ export interface EdicaoOS {
   cor: string;
   observacoes: string;
   marcacoes: Marcacoes;
+  /** Placa / impressão de modelo (por arcada, fora do odontograma). */
+  arcadas?: Grupo[];
   retrabalho: Record<string, boolean>;
 }
 
@@ -107,6 +109,17 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
   const [observacoes, setObservacoes] = useState(edicao?.observacoes ?? "");
   const [marcacoes, setMarcacoes] = useState<Marcacoes>(edicao?.marcacoes ?? {});
   const [retrabalho, setRetrabalho] = useState<Record<string, boolean>>(edicao?.retrabalho ?? {});
+  // Placa / impressão de modelo: trabalhos da arcada, à parte do odontograma (convivem com coroas etc.).
+  const [arcadas, setArcadas] = useState<Grupo[]>(edicao?.arcadas ?? []);
+  function addArcada(caminho: string[], dentes: string[]) {
+    const chave = caminho.join(" – ");
+    setArcadas((l) => {
+      const ex = l.find((g) => g.chave === chave);
+      if (!ex) return [...l, { chave, caminho, dentes }];
+      return l.map((g) => (g === ex ? { ...g, dentes: ORDEM_DENTES.filter((d) => g.dentes.includes(d) || dentes.includes(d)) } : g));
+    });
+  }
+  const ehArcada = (chave: string) => arcadas.some((g) => g.chave === chave);
   const [arquivos, setArquivos] = useState<Arq[]>([]);
   const [precos, setPrecos] = useState<Record<string, number>>(precosIniciais ?? {});
   const [estado, setEstado] = useState<"editando" | "enviando" | "pronto">("editando");
@@ -139,7 +152,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
   function estadoAtual(): EstadoVoz {
     return {
       paciente,
-      trabalhos: agruparMarcacoes(marcacoes).map((g) => ({ servico: g.chave, dentes: g.dentes, retrabalho: !!retrabalho[g.chave] })),
+      trabalhos: [...agruparMarcacoes(marcacoes), ...arcadas].map((g) => ({ servico: g.chave, dentes: g.dentes, retrabalho: !!retrabalho[g.chave] })),
       cor: corCaso,
       prazo,
       instalacao: "",
@@ -151,6 +164,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
   function aplicarVoz(e: EstadoVoz) {
     setPaciente(e.paciente);
     setMarcacoes(estadoParaMarcacoes(e));
+    setArcadas(estadoParaArcadas(e));
     setRetrabalho(Object.fromEntries(e.trabalhos.filter((t) => t.retrabalho).map((t) => [t.servico, true])));
     setCorCaso(e.cor);
     setPrazo(e.prazo);
@@ -177,7 +191,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dentista.tabela_id]);
 
-  const grupos = useMemo(() => agruparMarcacoes(marcacoes), [marcacoes]);
+  const grupos = useMemo(() => [...agruparMarcacoes(marcacoes), ...arcadas], [marcacoes, arcadas]);
   const orc = useMemo(() => orcamento(grupos, precos), [grupos, precos]);
   const casoPedeCor = grupos.some((g) => pedeCor(g.caminho) || ehPontico(g.caminho));
   // Prazo mínimo do caso = o maior prazo mínimo entre os trabalhos marcados.
@@ -234,7 +248,11 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
     try {
       const varios = grupos.length > 1;
       const trabalhos = grupos.map((g) => {
-        const dentes = varios ? ` (dente${g.dentes.length > 1 ? "s" : ""} ${g.dentes.join(", ")})` : "";
+        const dentes = ehArcada(g.chave)
+          ? ` (arcada ${arcadasDosDentes(g.dentes)})`
+          : varios
+          ? ` (dente${g.dentes.length > 1 ? "s" : ""} ${g.dentes.join(", ")})`
+          : "";
         return g.chave + dentes + (retrabalho[g.chave] ? " (Retrabalho)" : "");
       });
       const materiais = Array.from(
@@ -321,7 +339,11 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
     try {
       const varios = grupos.length > 1;
       const trabalhos = grupos.map((g) => {
-        const dentes = varios ? ` (dente${g.dentes.length > 1 ? "s" : ""} ${g.dentes.join(", ")})` : "";
+        const dentes = ehArcada(g.chave)
+          ? ` (arcada ${arcadasDosDentes(g.dentes)})`
+          : varios
+          ? ` (dente${g.dentes.length > 1 ? "s" : ""} ${g.dentes.join(", ")})`
+          : "";
         return g.chave + dentes + (retrabalho[g.chave] ? " (Retrabalho)" : "");
       });
       const materiais = Array.from(new Set(grupos.map((g) => materialDoCaminho(g.caminho)).filter((m): m is string => !!m)));
@@ -521,15 +543,23 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
           </Panel>
 
           <Panel eyebrow="Odontograma" title="Dentes e trabalhos" badge={grupos.length ? `${grupos.length} trabalho${grupos.length > 1 ? "s" : ""}` : undefined}>
-            <OdontogramaTrabalhos marcacoes={marcacoes} onChange={setMarcacoes} />
+            <OdontogramaTrabalhos marcacoes={marcacoes} onChange={setMarcacoes} onTrabalhoDeArcada={addArcada} />
             {grupos.length > 0 && (
               <div className="mt-5 flex flex-col gap-2">
                 {grupos.map((g) => (
                   <div key={g.chave} className="flex flex-wrap items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-2.5">
                     <span className={`h-2.5 w-2.5 rounded-full border ${COR_CATEGORIA[g.caminho[0]] ?? ""}`} />
                     <span className="min-w-0 flex-1 text-sm text-white">
-                      {g.chave} <span className="text-zinc-400">· {g.dentes.length > 1 ? "dentes" : "dente"} {g.dentes.join(", ")}</span>
+                      {g.chave}{" "}
+                      <span className="text-zinc-400">
+                        · {ehArcada(g.chave) ? `arcada ${arcadasDosDentes(g.dentes)}` : `${g.dentes.length > 1 ? "dentes" : "dente"} ${g.dentes.join(", ")}`}
+                      </span>
                     </span>
+                    {ehArcada(g.chave) && !enviando && (
+                      <button type="button" onClick={() => setArcadas((l) => l.filter((x) => x.chave !== g.chave))} className="text-lg leading-none text-zinc-500 hover:text-rose-300" title="Tirar este trabalho">
+                        ×
+                      </button>
+                    )}
                     <label className="flex items-center gap-2 text-xs text-zinc-400">
                       <input
                         type="checkbox"
