@@ -27,7 +27,7 @@ export default async function EditarOSPage({ params }: { params: { id: string } 
     nomeTabela = t?.nome ?? null;
   }
 
-  const { marcacoes, retrabalho } = marcacoesDaOS(p.tipo_trabalho, p.dentes);
+  const { marcacoes, retrabalho, arcadas } = marcacoesDaOS(p.tipo_trabalho, p.dentes);
 
   return (
     <AdminShell ativo="/dashboard/ordens">
@@ -46,6 +46,7 @@ export default async function EditarOSPage({ params }: { params: { id: string } 
           cor: p.cor_restauracao ?? "",
           observacoes: p.observacoes ?? "",
           marcacoes,
+          arcadas,
           retrabalho,
         }}
       />
