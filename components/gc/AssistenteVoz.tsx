@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CATALOGO, SEPARADOR, todasAsFolhas, unidadeDoServico } from "@/lib/catalogo";
+import { CATALOGO, SEPARADOR, ehTrabalhoDeArcada, todasAsFolhas, unidadeDoServico } from "@/lib/catalogo";
 import { ORDEM_DENTES, agruparMarcacoes } from "@/lib/odontograma";
 import { orcamento } from "@/lib/precos";
 import { brl } from "@/lib/gc";
@@ -73,8 +73,19 @@ const FIXAS: Set<string> = (() => {
 
 export function estadoParaMarcacoes(estado: EstadoVoz): Marcacoes {
   const m: Marcacoes = {};
-  for (const t of estado.trabalhos) for (const d of t.dentes) m[d] = t.servico.split(SEPARADOR);
+  for (const t of estado.trabalhos) {
+    const c = t.servico.split(SEPARADOR);
+    if (ehTrabalhoDeArcada(c)) continue; // placa / modelo ficam na lista à parte
+    for (const d of t.dentes) m[d] = c;
+  }
   return m;
+}
+
+/** Placa / impressão de modelo do estado da voz (não ocupam os dentes). */
+export function estadoParaArcadas(estado: EstadoVoz) {
+  return estado.trabalhos
+    .filter((t) => ehTrabalhoDeArcada(t.servico.split(SEPARADOR)))
+    .map((t) => ({ chave: t.servico, caminho: t.servico.split(SEPARADOR), dentes: t.dentes }));
 }
 
 const dataFalada = (iso: string) => {
@@ -177,7 +188,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
       .catch(() => {});
   }, []);
 
-  const grupos = useMemo(() => agruparMarcacoes(estadoParaMarcacoes(estado)), [estado]);
+  const grupos = useMemo(() => [...agruparMarcacoes(estadoParaMarcacoes(estado)), ...estadoParaArcadas(estado)], [estado]);
   const orc = useMemo(() => orcamento(grupos, precos), [grupos, precos]);
   const temPrecos = Object.keys(precos).length > 0;
 
@@ -515,7 +526,7 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
     if (e.urgente) partes.push("Urgência.");
     else if (e.prazo) partes.push(`Entrega ${dataPorExtenso(e.prazo)}.`);
     if (e.observacoes) partes.push(`Observação: ${e.observacoes}.`);
-    const g = agruparMarcacoes(estadoParaMarcacoes(e));
+    const g = [...agruparMarcacoes(estadoParaMarcacoes(e)), ...estadoParaArcadas(e)];
     const o = orcamento(g, precos);
     if (temPrecos && o.total > 0) partes.push(`Valor estimado ${brl(o.total)}${o.semPreco ? ", mais os itens a combinar" : ""}.`);
     return partes.join(" ");
@@ -566,8 +577,10 @@ export default function AssistenteVoz({ token, precos, inicial, onAplicar, onFec
       ? e.trabalhos.map((t) => (t === existente ? { ...t, dentes: ORDEM_DENTES.filter((d) => t.dentes.includes(d) || dentes.includes(d)) } : t))
       : [...e.trabalhos, { servico, dentes, retrabalho: r.retrabalho }];
     // outro trabalho já usava algum desses dentes? o novo vale
+    // (placa e impressão de modelo não ocupam os dentes: convivem com os outros trabalhos)
+    const deArcada = (sv: string) => ehTrabalhoDeArcada(sv.split(SEPARADOR));
     const limpos = trabalhos
-      .map((t) => (t.servico === servico ? t : { ...t, dentes: t.dentes.filter((d) => !dentes.includes(d)) }))
+      .map((t) => (t.servico === servico || deArcada(t.servico) || deArcada(servico) ? t : { ...t, dentes: t.dentes.filter((d) => !dentes.includes(d)) }))
       .filter((t) => t.dentes.length > 0);
     const novo = { ...e, trabalhos: limpos };
     mudarEstado(novo);
