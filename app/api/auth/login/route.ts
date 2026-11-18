@@ -18,5 +18,13 @@ export async function POST(req: NextRequest) {
     path: "/",
     maxAge: 60 * 60 * 24 * 30, // 30 dias
   });
+  // Marca este aparelho como do laboratório: o app passa a abrir sempre no dashboard.
+  res.cookies.set("gc_aparelho_lab", "1", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365 * 5,
+  });
   return res;
 }
