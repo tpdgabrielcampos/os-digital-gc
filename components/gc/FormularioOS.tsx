@@ -8,7 +8,7 @@ import Link from "next/link";
 import OdontogramaTrabalhos, { COR_CATEGORIA, type Marcacoes } from "@/components/OdontogramaTrabalhos";
 import { Botao, I, PageHeader, Panel } from "@/components/gc/ui";
 import { supabaseBrowser } from "@/lib/supabaseClient";
-import { arcadasDosDentes, ehPontico, materialDoCaminho, nomeUnidade, pedeCor, prazoMinimoDias } from "@/lib/catalogo";
+import { ehPontico, rotuloDoTrabalhoDeArcada, materialDoCaminho, nomeUnidade, pedeCor, prazoMinimoDias } from "@/lib/catalogo";
 import { ORDEM_DENTES, agruparMarcacoes, type Grupo } from "@/lib/odontograma";
 import { orcamento } from "@/lib/precos";
 import { MAX_ARQUIVO, brl, numeroOS, tamanhoLegivel } from "@/lib/gc";
@@ -109,7 +109,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
   const [observacoes, setObservacoes] = useState(edicao?.observacoes ?? "");
   const [marcacoes, setMarcacoes] = useState<Marcacoes>(edicao?.marcacoes ?? {});
   const [retrabalho, setRetrabalho] = useState<Record<string, boolean>>(edicao?.retrabalho ?? {});
-  // Placa / impressão de modelo: trabalhos da arcada, à parte do odontograma (convivem com coroas etc.).
+  // Placa / impressão de modelo / IBAR: trabalhos da arcada, à parte do odontograma (convivem com coroas, protocolo etc.).
   const [arcadas, setArcadas] = useState<Grupo[]>(edicao?.arcadas ?? []);
   function addArcada(caminho: string[], dentes: string[]) {
     const chave = caminho.join(" – ");
@@ -249,7 +249,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
       const varios = grupos.length > 1;
       const trabalhos = grupos.map((g) => {
         const dentes = ehArcada(g.chave)
-          ? ` (arcada ${arcadasDosDentes(g.dentes)})`
+          ? ` (${rotuloDoTrabalhoDeArcada(g.caminho, g.dentes)})`
           : varios
           ? ` (dente${g.dentes.length > 1 ? "s" : ""} ${g.dentes.join(", ")})`
           : "";
@@ -340,7 +340,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
       const varios = grupos.length > 1;
       const trabalhos = grupos.map((g) => {
         const dentes = ehArcada(g.chave)
-          ? ` (arcada ${arcadasDosDentes(g.dentes)})`
+          ? ` (${rotuloDoTrabalhoDeArcada(g.caminho, g.dentes)})`
           : varios
           ? ` (dente${g.dentes.length > 1 ? "s" : ""} ${g.dentes.join(", ")})`
           : "";
@@ -552,7 +552,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
                     <span className="min-w-0 flex-1 text-sm text-white">
                       {g.chave}{" "}
                       <span className="text-zinc-400">
-                        · {ehArcada(g.chave) ? `arcada ${arcadasDosDentes(g.dentes)}` : `${g.dentes.length > 1 ? "dentes" : "dente"} ${g.dentes.join(", ")}`}
+                        · {ehArcada(g.chave) ? rotuloDoTrabalhoDeArcada(g.caminho, g.dentes) : `${g.dentes.length > 1 ? "dentes" : "dente"} ${g.dentes.join(", ")}`}
                       </span>
                     </span>
                     {ehArcada(g.chave) && !enviando && (
