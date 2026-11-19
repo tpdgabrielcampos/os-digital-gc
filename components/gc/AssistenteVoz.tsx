@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CATALOGO, SEPARADOR, ehTrabalhoDeArcada, todasAsFolhas, unidadeDoServico } from "@/lib/catalogo";
+import { CATALOGO, SEPARADOR, dentesDoTrabalhoDeArcada, ehTrabalhoDeArcada, todasAsFolhas, unidadeDoServico } from "@/lib/catalogo";
 import { ORDEM_DENTES, agruparMarcacoes } from "@/lib/odontograma";
 import { orcamento } from "@/lib/precos";
 import { brl } from "@/lib/gc";
@@ -85,7 +85,10 @@ export function estadoParaMarcacoes(estado: EstadoVoz): Marcacoes {
 export function estadoParaArcadas(estado: EstadoVoz) {
   return estado.trabalhos
     .filter((t) => ehTrabalhoDeArcada(t.servico.split(SEPARADOR)))
-    .map((t) => ({ chave: t.servico, caminho: t.servico.split(SEPARADOR), dentes: t.dentes }));
+    .map((t) => {
+      const caminho = t.servico.split(SEPARADOR);
+      return { chave: t.servico, caminho, dentes: dentesDoTrabalhoDeArcada(caminho, t.dentes) };
+    });
 }
 
 const dataFalada = (iso: string) => {
