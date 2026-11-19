@@ -176,11 +176,49 @@ export function quantidadeCobrada(caminho: string[], dentes: string[]): number {
 }
 
 /**
- * Trabalhos feitos sobre a arcada inteira que NÃO ocupam os dentes no odontograma
- * (podem vir junto com coroas, facetas etc. na mesma OS): placa e impressões de modelo.
+ * Trabalhos feitos sobre a arcada que NÃO ocupam os dentes no odontograma
+ * (podem vir junto com coroas, facetas, protocolo etc. na mesma OS):
+ * placa, impressões de modelo e o design de IBAR (barra), que costuma ir junto do protocolo.
  */
 const TRABALHOS_DE_ARCADA = new Set(["Placa miorelaxante", "Impressão de modelo", "Impressão de biomodelo"]);
-export const ehTrabalhoDeArcada = (caminho: string[]) => TRABALHOS_DE_ARCADA.has(caminho[0]);
+export const ehTrabalhoDeArcada = (caminho: string[]) =>
+  TRABALHOS_DE_ARCADA.has(caminho[0]) || (caminho[0] === "Design CAD" && !!caminho[1]?.startsWith("IBAR"));
+
+const QUADRANTE: Record<string, string> = { "1": "superior direito", "2": "superior esquerdo", "3": "inferior esquerdo", "4": "inferior direito" };
+const dentesDoQuadrante = (q: string) => ["1", "2", "3", "4", "5", "6", "7", "8"].map((n) => q + n);
+
+/** Dentes clicados → arcada(s) inteira(s); na meia arcada, só o(s) lado(s) clicado(s). */
+export function dentesDoTrabalhoDeArcada(caminho: string[], dentes: string[]): string[] {
+  const qs = new Set(dentes.map((d) => d[0]).filter((q) => q in QUADRANTE));
+  if (unidadeDoServico(caminho) !== "meia arcada") {
+    if (qs.has("1") || qs.has("2")) qs.add("1").add("2");
+    if (qs.has("3") || qs.has("4")) qs.add("3").add("4");
+  }
+  return ["1", "2", "4", "3"].filter((q) => qs.has(q)).flatMap(dentesDoQuadrante);
+}
+
+/** Texto do trabalho de arcada: "arcada superior" ou "meia arcada superior direito, superior esquerdo". */
+export function rotuloDoTrabalhoDeArcada(caminho: string[], dentes: string[]): string {
+  if (unidadeDoServico(caminho) === "meia arcada") {
+    const qs = ["1", "2", "4", "3"].filter((q) => dentes.some((d) => d[0] === q));
+    return `meia arcada ${qs.map((q) => QUADRANTE[q]).join(", ")}`;
+  }
+  return `arcada ${arcadasDosDentes(dentes)}`;
+}
+
+/** Lê de volta o rótulo gravado na OS ("arcada …" / "meia arcada …") → dentes. */
+export function dentesDoRotulo(rotulo: string): string[] | null {
+  const r = rotulo.toLowerCase().trim();
+  if (r.startsWith("meia arcada")) {
+    const qs = Object.keys(QUADRANTE).filter((q) => r.includes(QUADRANTE[q]));
+    return ["1", "2", "4", "3"].filter((q) => qs.includes(q)).flatMap(dentesDoQuadrante);
+  }
+  if (r.startsWith("arcada")) {
+    const qs = [...(r.includes("superior") ? ["1", "2"] : []), ...(r.includes("inferior") ? ["4", "3"] : [])];
+    return qs.flatMap(dentesDoQuadrante);
+  }
+  return null;
+}
 
 /** "superior", "inferior" ou "superior e inferior", a partir dos dentes. */
 export function arcadasDosDentes(dentes: string[]) {
