@@ -1,4 +1,4 @@
-import { SEPARADOR, ehTrabalhoDeArcada } from "@/lib/catalogo";
+import { SEPARADOR, dentesDoRotulo, ehTrabalhoDeArcada } from "@/lib/catalogo";
 import { ORDEM_DENTES, type Grupo } from "@/lib/odontograma";
 import type { Marcacoes } from "@/components/OdontogramaTrabalhos";
 
@@ -17,12 +17,11 @@ export function marcacoesDaOS(tipoTrabalho: string, dentes: string[] | null) {
     const ret = /\s*\(Retrabalho\)\s*$/i.test(t);
     t = t.replace(/\s*\(Retrabalho\)\s*$/i, "");
     let ds: string[] = [];
-    // placa / modelo: "(arcada superior e inferior)"
-    const arc = t.match(/\s*\(arcada\s+([a-z ]+)\)\s*$/i);
+    // placa / modelo / IBAR: "(arcada superior e inferior)" ou "(meia arcada superior direito, …)"
+    const arc = t.match(/\s*\(((?:meia )?arcada\s+[a-z ,]+)\)\s*$/i);
     if (arc) {
       t = t.slice(0, arc.index).trim();
-      const qual = arc[1].toLowerCase();
-      const dentesArc = ORDEM_DENTES.filter((d) => ((d[0] === "1" || d[0] === "2") && qual.includes("superior")) || ((d[0] === "3" || d[0] === "4") && qual.includes("inferior")));
+      const dentesArc = ORDEM_DENTES.filter((d) => (dentesDoRotulo(arc[1]) ?? []).includes(d));
       const caminho = t.split(SEPARADOR).map((x) => x.trim()).filter(Boolean);
       if (caminho.length) {
         arcadas.push({ chave: caminho.join(SEPARADOR), caminho, dentes: dentesArc });
