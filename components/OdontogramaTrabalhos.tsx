@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { SEPARADOR, ehTrabalhoDeArcada, opcoesDepoisDe } from "@/lib/catalogo";
+import { SEPARADOR, dentesDoTrabalhoDeArcada, ehTrabalhoDeArcada, opcoesDepoisDe } from "@/lib/catalogo";
 
 // Odontograma em notação FDI onde cada dente recebe um trabalho do catálogo.
 // Clique num dente -> abre uma janela para escolher o trabalho em etapas.
@@ -48,7 +48,7 @@ export type Marcacoes = Record<string, string[]>;
 interface Props {
   marcacoes: Marcacoes;
   onChange: (marcacoes: Marcacoes) => void;
-  /** Placa / impressão de modelo: não ocupam os dentes; recebem a(s) arcada(s) dos dentes clicados. */
+  /** Placa / impressão de modelo / IBAR: não ocupam os dentes; recebem a(s) arcada(s) (ou lados) dos dentes clicados. */
   onTrabalhoDeArcada?: (caminho: string[], dentes: string[]) => void;
 }
 
@@ -79,9 +79,9 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
 
   function aplicar(caminhoFinal: string[]) {
     if (!janela) return;
-    // Placa / impressão de modelo: não ocupam os dentes, vão para a lista à parte (por arcada).
+    // Placa / impressão de modelo / IBAR: não ocupam os dentes, vão para a lista à parte (convivem com o protocolo).
     if (onTrabalhoDeArcada && ehTrabalhoDeArcada(caminhoFinal)) {
-      onTrabalhoDeArcada(caminhoFinal, expandirArcadas(janela));
+      onTrabalhoDeArcada(caminhoFinal, dentesDoTrabalhoDeArcada(caminhoFinal, janela));
       setUltimo(caminhoFinal);
       setSelecionados([]);
       setModoVarios(false);
