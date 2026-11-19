@@ -88,6 +88,24 @@ export default function Quadro({ iniciais }: { iniciais: CartaoOS[] }) {
 
   useEffect(() => setCartoes(iniciais), [iniciais]);
 
+  // Atualiza o quadro sozinho: a cada 20 s (com a tela aberta) e ao voltar para a janela/app.
+  // Não atualiza no meio de um arrasto ou enquanto uma mudança de etapa está sendo salva.
+  const salvando = useRef(0);
+  useEffect(() => {
+    const atualizar = () => {
+      if (document.visibilityState !== "visible" || gesto.current || salvando.current > 0) return;
+      router.refresh();
+    };
+    const id = setInterval(atualizar, 20000);
+    document.addEventListener("visibilitychange", atualizar);
+    window.addEventListener("focus", atualizar);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", atualizar);
+      window.removeEventListener("focus", atualizar);
+    };
+  }, [router]);
+
   useEffect(() => {
     if (!aviso) return;
     const t = setTimeout(() => setAviso(null), 4000);
@@ -150,6 +168,7 @@ export default function Quadro({ iniciais }: { iniciais: CartaoOS[] }) {
     if (!antes || antes.status === para) return;
     const agora = new Date().toISOString();
     setCartoes((cs) => cs.map((c) => (c.id === id ? { ...c, status: para, status_updated_at: agora } : c)));
+    salvando.current++;
     try {
       const r = await fetch(`/api/pedidos/${id}`, {
         method: "PATCH",
@@ -168,6 +187,8 @@ export default function Quadro({ iniciais }: { iniciais: CartaoOS[] }) {
           ? "Essa etapa ainda não existe no banco: rode o SQL supabase/migration_quadro.sql no Supabase."
           : `Não consegui mover: ${msg}`,
       });
+    } finally {
+      salvando.current--;
     }
   }
 
