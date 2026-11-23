@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { useT } from "@/lib/i18n";
 import { SEPARADOR, dentesDoTrabalhoDeArcada, ehTrabalhoDeArcada, opcoesDepoisDe } from "@/lib/catalogo";
 
 // Odontograma em notação FDI onde cada dente recebe um trabalho do catálogo.
@@ -43,13 +44,13 @@ function expandirArcadas(dentes: string[]): string[] {
 const ehProtocolo = (c?: string[]) => c?.[0] === "Protocolo" || (c?.[0] === "Design CAD" && c?.[1] === "Protocolo");
 
 const ehArcadaInteira = (dentes: string[], arcada: string[]) => arcada.every((d) => dentes.includes(d));
-function tituloJanela(dentes: string[]) {
+function tituloJanela(dentes: string[], tr: (s: string) => string) {
   const sup = ehArcadaInteira(dentes, ARCADA_SUP);
   const inf = ehArcadaInteira(dentes, ARCADA_INF);
-  if (sup && inf && dentes.length === 32) return "Arcadas superior e inferior completas";
-  if (sup && dentes.length === 16) return "Arcada superior completa";
-  if (inf && dentes.length === 16) return "Arcada inferior completa";
-  return dentes.length === 1 ? `Dente ${dentes[0]}` : `Dentes ${dentes.join(", ")}`;
+  if (sup && inf && dentes.length === 32) return tr("Arcadas superior e inferior completas");
+  if (sup && dentes.length === 16) return tr("Arcada superior completa");
+  if (inf && dentes.length === 16) return tr("Arcada inferior completa");
+  return dentes.length === 1 ? `${tr("Dente")} ${dentes[0]}` : `${tr("Dentes")} ${dentes.join(", ")}`;
 }
 
 /** dente -> caminho escolhido no catálogo (ex: ["PSD", "Coroa", "Dissilicato"]) */
@@ -63,6 +64,7 @@ interface Props {
 }
 
 export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDeArcada }: Props) {
+  const { tr, ts } = useT();
   const [modoVarios, setModoVarios] = useState(false);
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [janela, setJanela] = useState<string[] | null>(null); // dentes da janela aberta
@@ -154,7 +156,7 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
       <button
         type="button"
         onClick={() => clicarDente(n)}
-        title={marc ? `${n}: ${marc.join(SEPARADOR)}` : `Dente ${n}`}
+        title={marc ? `${n}: ${ts(marc)}` : `${tr("Dente")} ${n}`}
         className={`h-9 w-[26px] shrink-0 rounded-lg border text-xs font-semibold transition-colors sm:h-10 sm:w-8 ${
           marc
             ? cor
@@ -174,10 +176,10 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
             key={nome as string}
             type="button"
             onClick={() => marcarArcada(arc as string[])}
-            title={`Selecionar a arcada ${nome} inteira`}
+            title={tr(nome === "superior" ? "Selecionar a arcada superior inteira" : "Selecionar a arcada inferior inteira")}
             className="rounded-lg border border-white/15 bg-white/[0.03] text-zinc-300 hover:border-pink-300/60 hover:text-white px-3 py-1.5 text-xs font-semibold"
           >
-            Arcada {nome} completa
+            {tr(nome === "superior" ? "Arcada superior completa" : "Arcada inferior completa")}
           </button>
         ))}
       </div>
@@ -197,21 +199,21 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
       <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs">
         {!modoVarios ? (
           <>
-            <span className="text-zinc-400">Clique num dente para escolher o trabalho.</span>
+            <span className="text-zinc-400">{tr("Clique num dente para escolher o trabalho.")}</span>
             <button
               type="button"
               onClick={() => setModoVarios(true)}
               className="rounded-lg border border-white/15 px-2.5 py-1.5 font-medium text-zinc-200 hover:bg-white/5"
             >
-              Marcar vários dentes de uma vez
+              {tr("Marcar vários dentes de uma vez")}
             </button>
           </>
         ) : (
           <>
             <span className="text-zinc-300">
               {selecionados.length === 0
-                ? "Clique nos dentes que terão o mesmo trabalho."
-                : `Selecionados: ${[...selecionados].sort().join(", ")}`}
+                ? tr("Clique nos dentes que terão o mesmo trabalho.")
+                : `${tr("Selecionados:")} ${[...selecionados].sort().join(", ")}`}
             </span>
             <button
               type="button"
@@ -219,7 +221,7 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
               onClick={() => abrirJanela([...selecionados].sort())}
               className="gc-btn gc-btn-principal !px-3 !py-1.5 !text-xs disabled:opacity-40"
             >
-              Escolher trabalho ({selecionados.length})
+              {tr("Escolher trabalho")} ({selecionados.length})
             </button>
             <button
               type="button"
@@ -229,7 +231,7 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
               }}
               className="rounded-md px-2 py-1 text-zinc-400 hover:underline"
             >
-              Cancelar
+              {tr("Cancelar")}
             </button>
           </>
         )}
@@ -252,17 +254,17 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-bold text-white">
-                  {tituloJanela(janela)}
+                  {tituloJanela(janela, tr)}
                 </h3>
                 <p className="text-xs text-zinc-400">
-                  {caminho.length === 0 ? "Escolha o tipo de trabalho" : caminho.join(SEPARADOR)}
+                  {caminho.length === 0 ? tr("Escolha o tipo de trabalho") : ts(caminho)}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={fecharJanela}
                 className="text-xl leading-none text-zinc-500 hover:text-white"
-                aria-label="Fechar"
+                aria-label={tr("Fechar")}
               >
                 ×
               </button>
@@ -270,7 +272,7 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
 
             {atual && caminho.length === 0 && (
               <p className="mt-3 rounded-lg bg-white/5 px-3 py-2 text-xs text-zinc-300">
-                Atual: <strong>{atual.join(SEPARADOR)}</strong>
+                {tr("Atual:")} <strong>{ts(atual)}</strong>
               </p>
             )}
 
@@ -280,7 +282,7 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
                 onClick={() => aplicar(ultimo)}
                 className="mt-3 w-full rounded-lg border-2 border-dashed border-pink-300/40 px-3 py-2 text-left text-sm text-pink-200 hover:bg-white/5"
               >
-                Repetir: <strong>{ultimo.join(SEPARADOR)}</strong>
+                {tr("Repetir:")} <strong>{ts(ultimo)}</strong>
               </button>
             )}
 
@@ -299,13 +301,13 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
                           className={`inline-block h-3 w-3 rounded-full border ${COR_CATEGORIA[o.nome] ?? ""}`}
                         />
                       )}
-                      {o.nome}
+                      {tr(o.nome)}
                     </span>
                     {caminho.length === 0 && o.nome === "Protocolo" && (
-                      <span className="block text-xs text-zinc-400">Marca a arcada completa</span>
+                      <span className="block text-xs text-zinc-400">{tr("Marca a arcada completa")}</span>
                     )}
                     {o.descricao && (
-                      <span className="block text-xs text-zinc-400">{o.descricao}</span>
+                      <span className="block text-xs text-zinc-400">{tr(o.descricao)}</span>
                     )}
                   </span>
                   {o.filhos && <span className="text-zinc-500">›</span>}
@@ -320,7 +322,7 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
                   onClick={() => setCaminho(caminho.slice(0, -1))}
                   className="text-sm text-zinc-400 hover:text-white"
                 >
-                  ‹ Voltar
+                  ‹ {tr("Voltar")}
                 </button>
               ) : (
                 <span />
@@ -331,7 +333,7 @@ export default function OdontogramaTrabalhos({ marcacoes, onChange, onTrabalhoDe
                   onClick={remover}
                   className="text-sm font-medium text-rose-400 hover:underline"
                 >
-                  Remover marcação
+                  {tr("Remover marcação")}
                 </button>
               )}
             </div>
