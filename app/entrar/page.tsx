@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabaseClient";
+import { TEXTOS, traduzErroAuth, useIdioma } from "@/lib/idiomaEntrada";
+import SeletorIdioma from "@/components/gc/SeletorIdioma";
 
 // Tela inicial do dentista: criar conta ou entrar (e-mail + senha).
 
@@ -16,17 +18,6 @@ export default function EntrarPage() {
   );
 }
 
-function traduzErro(msg: string) {
-  const m = msg.toLowerCase();
-  if (m.includes("invalid login")) return "E-mail ou senha incorretos.";
-  if (m.includes("already registered") || m.includes("already been registered"))
-    return "Esse e-mail já tem conta. Use \"Já tenho conta\" para entrar.";
-  if (m.includes("email not confirmed")) return "Falta confirmar o e-mail: abra a mensagem que enviamos e clique no link.";
-  if (m.includes("password")) return "A senha precisa ter pelo menos 8 caracteres.";
-  if (m.includes("rate limit")) return "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.";
-  return msg;
-}
-
 function Entrar() {
   const router = useRouter();
   const params = useSearchParams();
@@ -36,6 +27,8 @@ function Entrar() {
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [idioma, setIdioma] = useIdioma();
+  const t = TEXTOS[idioma];
 
   // Já está logado? Vai direto para o portal.
   useEffect(() => {
@@ -55,13 +48,13 @@ function Entrar() {
     try {
       const email = campos.email.trim().toLowerCase();
       if (modo === "criar") {
-        if (!campos.nome.trim()) throw new Error("Preencha o seu nome.");
-        if (campos.senha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+        if (!campos.nome.trim()) throw new Error(t.errNome);
+        if (campos.senha.length < 8) throw new Error(t.errSenha);
         const { data, error } = await supabaseBrowser.auth.signUp({
           email,
           password: campos.senha,
           options: {
-            data: { nome: campos.nome.trim(), clinica: campos.clinica.trim(), whatsapp: campos.whatsapp.trim() },
+            data: { nome: campos.nome.trim(), clinica: campos.clinica.trim(), whatsapp: campos.whatsapp.trim(), idioma },
             emailRedirectTo: `${window.location.origin}/portal`,
           },
         });
@@ -69,7 +62,7 @@ function Entrar() {
         if (data.session) {
           router.replace(voltar);
         } else {
-          setAviso("Conta criada! Enviamos um e-mail de confirmação. Clique no link da mensagem e depois entre aqui.");
+          setAviso(t.avisoCriada);
           setModo("entrar");
         }
       } else if (modo === "entrar") {
@@ -81,10 +74,10 @@ function Entrar() {
           redirectTo: `${window.location.origin}/entrar/nova-senha`,
         });
         if (error) throw error;
-        setAviso("Se esse e-mail tiver conta, você vai receber um link para criar uma senha nova.");
+        setAviso(t.avisoLink);
       }
     } catch (err) {
-      setErro(traduzErro(err instanceof Error ? err.message : String(err)));
+      setErro(traduzErroAuth(err instanceof Error ? err.message : String(err), t));
     } finally {
       setCarregando(false);
     }
@@ -130,39 +123,50 @@ function Entrar() {
           onSubmit={enviar}
           className="w-full max-w-md justify-self-center rounded-[1.5rem] border border-white/10 bg-black/45 p-7 shadow-2xl backdrop-blur-md sm:p-9 lg:justify-self-end"
         >
+          <div className="mb-4">
+            <SeletorIdioma
+              idioma={idioma}
+              rotulo={t.idioma}
+              onEscolher={(i) => {
+                setIdioma(i);
+                setErro(null);
+                setAviso(null);
+              }}
+            />
+          </div>
           <div className="gc-tabs">
             <button type="button" onClick={() => setModo("criar")} className={`gc-tab ${modo === "criar" ? "gc-tab-ativa" : ""}`}>
-              Criar conta
+              {t.criarConta}
             </button>
             <button type="button" onClick={() => setModo("entrar")} className={`gc-tab ${modo !== "criar" ? "gc-tab-ativa" : ""}`}>
-              Já tenho conta
+              {t.jaTenhoConta}
             </button>
           </div>
 
           <h2 className="mt-6 text-2xl font-bold text-white">
-            {modo === "criar" ? "Crie seu acesso" : modo === "entrar" ? "Bem-vindo de volta" : "Esqueci a senha"}
+            {modo === "criar" ? t.tituloCriar : modo === "entrar" ? t.tituloEntrar : t.tituloEsqueci}
           </h2>
           <p className="mt-1 text-sm text-zinc-400">
             {modo === "criar"
-              ? "Leva 1 minuto. Depois é só entrar e enviar suas OS."
+              ? t.subCriar
               : modo === "entrar"
-                ? "Entre com o e-mail e a senha da sua conta."
-                : "Digite o seu e-mail para receber o link de uma senha nova."}
+                ? t.subEntrar
+                : t.subEsqueci}
           </p>
 
           <div className="mt-6 flex flex-col gap-4">
             {modo === "criar" && (
               <>
-                {campo("Nome completo", "nome", { placeholder: "Ex: Dra. Ana Souza", autoComplete: "name", required: true })}
-                {campo("Clínica", "clinica", { placeholder: "Nome da clínica (opcional)" })}
-                {campo("WhatsApp", "whatsapp", { placeholder: "(51) 9 9999-0000", inputMode: "tel", autoComplete: "tel" })}
+                {campo(t.nome, "nome", { placeholder: t.nomeEx, autoComplete: "name", required: true })}
+                {campo(t.clinica, "clinica", { placeholder: t.clinicaEx })}
+                {campo(t.whatsapp, "whatsapp", { placeholder: t.whatsappEx, inputMode: "tel", autoComplete: "tel" })}
               </>
             )}
-            {campo("E-mail", "email", { type: "email", placeholder: "voce@clinica.com.br", autoComplete: "email", required: true })}
+            {campo(t.email, "email", { type: "email", placeholder: t.emailEx, autoComplete: "email", required: true })}
             {modo !== "esqueci" &&
-              campo("Senha", "senha", {
+              campo(t.senha, "senha", {
                 type: "password",
-                placeholder: modo === "criar" ? "mínimo 8 caracteres" : "sua senha",
+                placeholder: modo === "criar" ? t.senhaMin : t.suaSenha,
                 autoComplete: modo === "criar" ? "new-password" : "current-password",
                 required: true,
               })}
@@ -174,21 +178,21 @@ function Entrar() {
           <div className="mt-7 flex flex-wrap items-center gap-4">
             <button type="submit" disabled={carregando} className="gc-btn gc-btn-principal">
               {carregando
-                ? "Aguarde…"
+                ? t.aguarde
                 : modo === "criar"
-                  ? "Criar conta e entrar"
+                  ? t.botaoCriar
                   : modo === "entrar"
-                    ? "Entrar"
-                    : "Enviar link"}
+                    ? t.botaoEntrar
+                    : t.botaoLink}
             </button>
             {modo === "entrar" && (
               <button type="button" onClick={() => setModo("esqueci")} className="text-sm text-zinc-400 hover:text-white">
-                Esqueci a senha
+                {t.esqueci}
               </button>
             )}
             {modo === "esqueci" && (
               <button type="button" onClick={() => setModo("entrar")} className="text-sm text-zinc-400 hover:text-white">
-                Voltar
+                {t.voltar}
               </button>
             )}
           </div>
