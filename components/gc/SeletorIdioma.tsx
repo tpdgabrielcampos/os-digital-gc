@@ -24,3 +24,21 @@ export default function SeletorIdioma({ idioma, onEscolher, rotulo }: { idioma: 
     </div>
   );
 }
+
+/** Versão compacta (lista) para a barra do celular. */
+export function SeletorIdiomaCompacto({ idioma, onEscolher, rotulo }: { idioma: Idioma; onEscolher: (i: Idioma) => void; rotulo: string }) {
+  return (
+    <select
+      aria-label={rotulo}
+      value={idioma}
+      onChange={(e) => onEscolher(e.target.value as Idioma)}
+      className="rounded-lg border border-white/10 bg-black/60 px-1.5 py-1.5 text-xs font-semibold text-zinc-200"
+    >
+      {IDIOMAS.map((i) => (
+        <option key={i.id} value={i.id}>
+          {i.id.toUpperCase()}
+        </option>
+      ))}
+    </select>
+  );
+}
