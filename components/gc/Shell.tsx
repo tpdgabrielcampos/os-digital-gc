@@ -39,6 +39,7 @@ export default function Shell({
   sair,
   largo,
   lateral,
+  extraCelular,
   children,
 }: {
   menu: ItemMenu[];
@@ -52,6 +53,8 @@ export default function Shell({
   largo?: boolean;
   /** Conteúdo extra da barra lateral, abaixo do menu (ex.: assistente do dentista). */
   lateral?: ReactNode;
+  /** Extra na barra de cima do celular (ex.: escolha de idioma do portal). */
+  extraCelular?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -121,6 +124,7 @@ export default function Shell({
           </Link>
         ))}
         <span className="ml-auto flex shrink-0 items-center gap-1">
+          {extraCelular}
           <InstalarApp compacto />
           {sair && <span className="flex items-center px-2">{sair}</span>}
         </span>
