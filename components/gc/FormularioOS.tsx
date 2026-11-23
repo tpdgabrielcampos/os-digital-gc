@@ -16,14 +16,16 @@ import { ACEITOS, acaoOS, enviarArquivoOS, mensagemDeErro } from "@/lib/arquivos
 import type { Dentista } from "@/lib/gc";
 import AssistenteVoz, { estadoParaArcadas, estadoParaMarcacoes } from "@/components/gc/AssistenteVoz";
 import type { EstadoVoz } from "@/lib/voz";
+import { traduzir, useT } from "@/lib/i18n";
+import type { Idioma } from "@/lib/idiomaEntrada";
 
 const PREF_VOZ = "gc-assistente-voz";
 
 // WhatsApp do laboratório (com DDI e DDD, só números) para confirmar casos de urgência.
 const WHATSAPP_LAB = (process.env.NEXT_PUBLIC_WHATSAPP_LAB || "5551997031706").replace(/\D/g, "");
 
-function linkUrgencia(numero: string, paciente: string) {
-  const texto = `⚠️ URGÊNCIA — Olá, Gabriel! Acabei de enviar a OS ${numero} (paciente ${paciente}) marcada como urgência. Podemos combinar a data de entrega?`;
+function linkUrgencia(numero: string, paciente: string, idioma: Idioma = "pt") {
+  const texto = traduzir(idioma, "⚠️ URGÊNCIA — Olá, Gabriel! Acabei de enviar a OS {numero} (paciente {paciente}) marcada como urgência. Podemos combinar a data de entrega?", { numero, paciente });
   return `https://wa.me/${WHATSAPP_LAB}?text=${encodeURIComponent(texto)}`;
 }
 
@@ -101,6 +103,9 @@ async function enviarArquivoLab(file: File, pedidoId: string): Promise<{ ok: tru
 export default function FormularioOS({ dentista, nomeTabela, modo, token = "", precosIniciais, onTrocarDentista, edicao }: PropsFormularioOS) {
   const lab = modo === "laboratorio";
   const editando = !!edicao;
+  const { idioma, tr, ts, ta } = useT();
+  // O preenchimento por voz entende português; nos outros idiomas fica escondido.
+  const vozDisponivel = !lab && idioma === "pt";
   const [paciente, setPaciente] = useState(edicao?.paciente ?? "");
   const [prazo, setPrazo] = useState(edicao?.prazo ?? "");
   const [urgente, setUrgente] = useState(edicao?.urgente ?? false);
@@ -135,7 +140,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
   // Preferência do dentista: abrir o assistente por voz sempre que entrar na Nova OS.
   useEffect(() => {
     try {
-      if (!lab && localStorage.getItem(PREF_VOZ) === "1") {
+      if (vozDisponivel && localStorage.getItem(PREF_VOZ) === "1") {
         setSempreVoz(true);
         setVozAberta(true);
       }
@@ -209,7 +214,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
         id: crypto.randomUUID(),
         file,
         estado: file.size > MAX_ARQUIVO ? "erro" : "fila",
-        erro: file.size > MAX_ARQUIVO ? "maior que 50 MB — compacte ou divida o arquivo" : undefined,
+        erro: file.size > MAX_ARQUIVO ? tr("maior que 50 MB — compacte ou divida o arquivo") : undefined,
       });
     }
     setArquivos((a) => [...a, ...novos]);
@@ -222,16 +227,16 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
     e.preventDefault();
     setErro(null);
     const faltando: string[] = [];
-    if (!paciente.trim()) faltando.push("nome do paciente");
-    if (grupos.length === 0) faltando.push("pelo menos um trabalho no odontograma");
-    if (casoPedeCor && !corCaso.trim()) faltando.push("cor final do caso");
-    if (!urgente && !prazo && !editando) faltando.push("data de entrega (ou marque “É urgência”)");
+    if (!paciente.trim()) faltando.push(tr("nome do paciente"));
+    if (grupos.length === 0) faltando.push(tr("pelo menos um trabalho no odontograma"));
+    if (casoPedeCor && !corCaso.trim()) faltando.push(tr("cor final do caso"));
+    if (!urgente && !prazo && !editando) faltando.push(tr("data de entrega (ou marque “É urgência”)"));
     if (prazoCurto) {
-      setErro(`O prazo mínimo para esse caso é ${dataBRCurta(prazoMinimo)} (${diasMinimos} ${diasMinimos > 1 ? "dias" : "dia"}). Escolha essa data ou uma depois.`);
+      setErro(tr("O prazo mínimo para esse caso é {data} ({n} {dias}). Escolha essa data ou uma depois.", { data: dataBRCurta(prazoMinimo), n: diasMinimos, dias: tr(diasMinimos > 1 ? "dias" : "dia") }));
       return;
     }
     if (faltando.length) {
-      setErro(`Falta preencher: ${faltando.join(", ")}.`);
+      setErro(tr("Falta preencher: {lista}.", { lista: faltando.join(", ") }));
       return;
     }
 
@@ -322,13 +327,13 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
       }
 
       if (abaWhats) {
-        try { abaWhats.location.href = linkUrgencia(numeroOS(pedido.numero), paciente); } catch { /* fica o botão */ }
+        try { abaWhats.location.href = linkUrgencia(numeroOS(pedido.numero), paciente, idioma); } catch { /* fica o botão */ }
       }
       setResultado({ id: pedido.id, numero: pedido.numero, falhas, urgente, aguardando });
       setEstado("pronto");
     } catch (err) {
       try { abaWhats?.close(); } catch { /* ok */ }
-      setErro(`Não consegui enviar a OS. Detalhe: ${mensagemDeErro(err)}`);
+      setErro(tr("Não consegui enviar a OS. Detalhe: {d}", { d: mensagemDeErro(err) }));
       setEstado("editando");
     }
   }
@@ -389,7 +394,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
   if (estado === "pronto" && resultado) {
     return (
       <div className="gc-card gc-hero mx-auto mt-10 w-full max-w-xl p-10 text-center">
-        <p className="gc-eyebrow">{lab ? `OS lançada para ${dentista.nome}` : "OS enviada"}</p>
+        <p className="gc-eyebrow">{lab ? `OS lançada para ${dentista.nome}` : tr("OS enviada")}</p>
         <h1 className="mt-3 text-3xl font-bold text-white">{numeroOS(resultado.numero)}</h1>
         <p className="mt-3 text-zinc-300">
           {lab ? (
@@ -398,43 +403,42 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
             </>
           ) : (
             <>
-              Recebemos o caso de <strong className="text-white">{paciente}</strong>. Você acompanha o andamento em “Minhas OS”.
+              {tr("Recebemos o caso de")} <strong className="text-white">{paciente}</strong>. {tr("Você acompanha o andamento em “Minhas OS”.")}
             </>
           )}
         </p>
         {resultado.falhas > 0 && (
           <p className="mt-4 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-            {resultado.falhas} arquivo(s) não subiram. Envie de novo pela tela da OS ou mande pelo WhatsApp.
+            {tr("{n} arquivo(s) não subiram. Envie de novo pela tela da OS ou mande pelo WhatsApp.", { n: resultado.falhas })}
           </p>
         )}
         {resultado.aguardando && (
           <div className="mt-6 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-left">
-            <p className="font-semibold text-amber-200">⏳ OS aguardando arquivos</p>
+            <p className="font-semibold text-amber-200">⏳ {tr("OS aguardando arquivos")}</p>
             <p className="mt-1 text-sm text-zinc-300">
-              O caso só entra em produção quando todas as informações e arquivos forem enviados. Quando tiver tudo, abra a OS e
-              anexe o que falta.
+              {tr("O caso só entra em produção quando todas as informações e arquivos forem enviados. Quando tiver tudo, abra a OS e anexe o que falta.")}
             </p>
             <a
               href={lab ? `/pedido/${resultado.id}` : `/portal/os/${resultado.id}`}
               className="mt-3 inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-400"
             >
-              Abrir a OS para completar
+              {tr("Abrir a OS para completar")}
             </a>
           </div>
         )}
         {resultado.urgente && !lab && (
           <div className="mt-6 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-4 text-left">
-            <p className="font-semibold text-rose-200">⚠️ Caso marcado como urgência</p>
+            <p className="font-semibold text-rose-200">⚠️ {tr("Caso marcado como urgência")}</p>
             <p className="mt-1 text-sm text-zinc-300">
-              Avise o laboratório pelo WhatsApp para combinar a data de entrega. Se o WhatsApp não abriu sozinho, toque no botão:
+              {tr("Avise o laboratório pelo WhatsApp para combinar a data de entrega. Se o WhatsApp não abriu sozinho, toque no botão:")}
             </p>
             <a
-              href={linkUrgencia(numeroOS(resultado.numero), paciente)}
+              href={linkUrgencia(numeroOS(resultado.numero), paciente, idioma)}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-400"
             >
-              Avisar o laboratório no WhatsApp
+              {tr("Avisar o laboratório no WhatsApp")}
             </a>
           </div>
         )}
@@ -446,8 +450,8 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
             </>
           ) : (
             <>
-              <Botao variante="secundario" href="/portal">Minhas OS</Botao>
-              <Botao onClick={() => window.location.reload()}>{I.mais} Nova OS</Botao>
+              <Botao variante="secundario" href="/portal">{tr("Minhas OS")}</Botao>
+              <Botao onClick={() => window.location.reload()}>{I.mais} {tr("Nova OS")}</Botao>
             </>
           )}
         </div>
@@ -459,7 +463,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
 
   return (
     <>
-    {vozAberta && !lab && (
+    {vozAberta && vozDisponivel && (
       <AssistenteVoz
         token={token}
         precos={precos}
@@ -470,21 +474,21 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
     )}
     <form onSubmit={enviar} className="flex flex-col gap-6">
       <PageHeader
-        eyebrow={edicao ? `Editar ${numeroOS(edicao.numero)}` : lab ? "Lançar OS pelo laboratório" : "Nova ordem de serviço"}
-        title={edicao ? edicao.paciente || "OS" : lab ? `OS para ${dentista.nome || "o dentista"}` : "Enviar um caso"}
+        eyebrow={edicao ? `Editar ${numeroOS(edicao.numero)}` : lab ? "Lançar OS pelo laboratório" : tr("Nova ordem de serviço")}
+        title={edicao ? edicao.paciente || "OS" : lab ? `OS para ${dentista.nome || "o dentista"}` : tr("Enviar um caso")}
         subtitle={
           edicao
             ? `OS de ${dentista.nome || "dentista"}${dentista.clinica ? ` (${dentista.clinica})` : ""}. Mude o que precisar e salve; arquivos novos são somados aos que já estão na OS.`
             : lab
             ? `A OS fica no nome dele${dentista.clinica ? ` (${dentista.clinica})` : ""} e aparece em “Minhas OS” no portal. Valores pela tabela dele.`
-            : "Marque os dentes, escolha o trabalho e anexe os arquivos. Você vê o valor estimado antes de enviar."
+            : tr("Marque os dentes, escolha o trabalho e anexe os arquivos. Você vê o valor estimado antes de enviar.")
         }
         actions={
           edicao ? (
             <Link href={`/pedido/${edicao.pedidoId}`} className="gc-btn gc-btn-secundario">Cancelar</Link>
           ) : lab ? (
             <Botao variante="secundario" onClick={onTrocarDentista} disabled={enviando}>Trocar dentista</Botao>
-          ) : (
+          ) : !vozDisponivel ? undefined : (
           <div className="flex flex-col items-start gap-2 sm:items-end">
             <Botao onClick={() => setVozAberta(true)} disabled={enviando}>
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
@@ -506,14 +510,14 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
 
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <div className="flex min-w-0 flex-col gap-6">
-          <Panel eyebrow="Paciente" title="Dados do caso">
+          <Panel eyebrow={tr("Paciente")} title={tr("Dados do caso")}>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5 text-sm text-zinc-300 sm:col-span-2">
-                Nome do paciente *
+                {tr("Nome do paciente")} *
                 <input className="gc-input" value={paciente} onChange={(e) => setPaciente(e.target.value)} disabled={enviando} />
               </label>
               <label className="flex flex-col gap-1.5 text-sm text-zinc-300 sm:col-span-2">
-                {urgente ? "Data de entrega" : "Data de entrega *"}
+                {urgente ? tr("Data de entrega") : `${tr("Data de entrega")} *`}
                 <input
                   type="date"
                   className={`gc-input [color-scheme:dark] ${prazoCurto ? "!border-rose-400/70" : ""}`}
@@ -524,25 +528,25 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
                 />
                 <span className={`text-xs ${prazoCurto ? "text-rose-300" : "text-zinc-500"}`}>
                   {urgente
-                    ? "Urgência: a data será combinada com o laboratório pelo WhatsApp."
+                    ? tr("Urgência: a data será combinada com o laboratório pelo WhatsApp.")
                     : editando
                     ? "Edição pelo laboratório: pode escolher qualquer data."
                     : grupos.length
-                    ? `Entrega a partir de ${dataBRCurta(prazoMinimo)} (prazo mínimo de ${diasMinimos} ${diasMinimos > 1 ? "dias corridos" : "dia"} para este caso)`
-                    : "Prazos mínimos: Design 2 dias (IBAR 1 dia) · demais trabalhos 7 dias corridos"}
+                    ? tr("Entrega a partir de {data} (prazo mínimo de {n} {dias} para este caso)", { data: dataBRCurta(prazoMinimo), n: diasMinimos, dias: tr(diasMinimos > 1 ? "dias corridos" : "dia") })
+                    : tr("Prazos mínimos: Design 2 dias (IBAR 1 dia) · demais trabalhos 7 dias corridos")}
                 </span>
               </label>
               <label className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm sm:col-span-2 ${urgente ? "border-rose-400/50 bg-rose-500/10 text-rose-100" : "border-white/10 text-zinc-300"}`}>
                 <input type="checkbox" className="mt-1" checked={urgente} onChange={(e) => setUrgente(e.target.checked)} disabled={enviando} />
                 <span>
-                  <strong>⚠️ É urgência</strong>
-                  <span className="block text-xs text-zinc-400">Não precisa escolher data. Ao enviar, abre o WhatsApp do laboratório para combinar o prazo.</span>
+                  <strong>⚠️ {tr("É urgência")}</strong>
+                  <span className="block text-xs text-zinc-400">{tr("Não precisa escolher data. Ao enviar, abre o WhatsApp do laboratório para combinar o prazo.")}</span>
                 </span>
               </label>
             </div>
           </Panel>
 
-          <Panel eyebrow="Odontograma" title="Dentes e trabalhos" badge={grupos.length ? `${grupos.length} trabalho${grupos.length > 1 ? "s" : ""}` : undefined}>
+          <Panel eyebrow={tr("Odontograma")} title={tr("Dentes e trabalhos")} badge={grupos.length ? `${grupos.length} ${tr(grupos.length > 1 ? "trabalhos" : "trabalho")}` : undefined}>
             <OdontogramaTrabalhos marcacoes={marcacoes} onChange={setMarcacoes} onTrabalhoDeArcada={addArcada} />
             {grupos.length > 0 && (
               <div className="mt-5 flex flex-col gap-2">
@@ -550,13 +554,13 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
                   <div key={g.chave} className="flex flex-wrap items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-2.5">
                     <span className={`h-2.5 w-2.5 rounded-full border ${COR_CATEGORIA[g.caminho[0]] ?? ""}`} />
                     <span className="min-w-0 flex-1 text-sm text-white">
-                      {g.chave}{" "}
+                      {ts(g.caminho)}{" "}
                       <span className="text-zinc-400">
-                        · {ehArcada(g.chave) ? rotuloDoTrabalhoDeArcada(g.caminho, g.dentes) : `${g.dentes.length > 1 ? "dentes" : "dente"} ${g.dentes.join(", ")}`}
+                        · {ehArcada(g.chave) ? ta(rotuloDoTrabalhoDeArcada(g.caminho, g.dentes)) : `${tr(g.dentes.length > 1 ? "dentes" : "dente")} ${g.dentes.join(", ")}`}
                       </span>
                     </span>
                     {ehArcada(g.chave) && !enviando && (
-                      <button type="button" onClick={() => setArcadas((l) => l.filter((x) => x.chave !== g.chave))} className="text-lg leading-none text-zinc-500 hover:text-rose-300" title="Tirar este trabalho">
+                      <button type="button" onClick={() => setArcadas((l) => l.filter((x) => x.chave !== g.chave))} className="text-lg leading-none text-zinc-500 hover:text-rose-300" title={tr("Tirar este trabalho")}>
                         ×
                       </button>
                     )}
@@ -566,7 +570,7 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
                         checked={!!retrabalho[g.chave]}
                         onChange={(e) => setRetrabalho((r) => ({ ...r, [g.chave]: e.target.checked }))}
                       />
-                      É retrabalho
+                      {tr("É retrabalho")}
                     </label>
                   </div>
                 ))}
@@ -574,14 +578,14 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
             )}
             {casoPedeCor && (
               <label className="mt-5 flex max-w-xs flex-col gap-1.5 text-sm text-zinc-300">
-                Cor final do caso *
-                <input className="gc-input" placeholder="Ex: A2, A3.5, BL2…" value={corCaso} onChange={(e) => setCorCaso(e.target.value)} disabled={enviando} />
+                {tr("Cor final do caso")} *
+                <input className="gc-input" placeholder={tr("Ex: A2, A3.5, BL2…")} value={corCaso} onChange={(e) => setCorCaso(e.target.value)} disabled={enviando} />
               </label>
             )}
           </Panel>
 
           <div ref={painelArquivos} />
-          <Panel eyebrow="Arquivos" title="Escaneamentos e fotos" badge="STL, PLY, OBJ, JPG, PDF">
+          <Panel eyebrow={tr("Arquivos")} title={tr("Escaneamentos e fotos")} badge="STL, PLY, OBJ, JPG, PDF">
             <div
               onClick={() => inputArquivo.current?.click()}
               onDragOver={(e) => {
@@ -599,8 +603,8 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
               }`}
             >
               <span className="text-[#f2a43a]">{I.nuvem}</span>
-              <p className="font-semibold text-white">Arraste os arquivos aqui ou clique para escolher</p>
-              <p className="text-sm text-zinc-400">Até 50 MB por arquivo. Vão direto para a pasta do caso no laboratório.</p>
+              <p className="font-semibold text-white">{tr("Arraste os arquivos aqui ou clique para escolher")}</p>
+              <p className="text-sm text-zinc-400">{tr("Até 50 MB por arquivo. Vão direto para a pasta do caso no laboratório.")}</p>
               <input
                 ref={inputArquivo}
                 type="file"
@@ -616,11 +620,11 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
             <label className={`mt-4 flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm ${arquivosDepois ? "border-amber-400/50 bg-amber-500/10 text-amber-100" : "border-white/10 text-zinc-300"}`}>
               <input type="checkbox" className="mt-1" checked={arquivosDepois} onChange={(e) => setArquivosDepois(e.target.checked)} disabled={enviando} />
               <span>
-                <strong>⏳ Envio os arquivos depois</strong>
+                <strong>⏳ {tr("Envio os arquivos depois")}</strong>
                 <span className="block text-xs text-zinc-400">
                   {arquivosDepois
-                    ? "Atenção: o caso só entra em produção quando todas as informações e arquivos forem enviados. Depois é só abrir a OS em “Minhas OS” e anexar o que falta."
-                    : "Ainda não tem o escaneamento? Marque aqui e complete a OS depois, pelo celular ou computador."}
+                    ? tr("Atenção: o caso só entra em produção quando todas as informações e arquivos forem enviados. Depois é só abrir a OS em “Minhas OS” e anexar o que falta.")
+                    : tr("Ainda não tem o escaneamento? Marque aqui e complete a OS depois, pelo celular ou computador.")}
                 </span>
               </span>
             </label>
@@ -637,10 +641,10 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
                       }`}
                       title={a.erro}
                     >
-                      {a.estado === "enviado" ? "enviado" : a.estado === "erro" ? a.erro ?? "erro" : a.estado === "enviando" ? "enviando…" : "pronto"}
+                      {a.estado === "enviado" ? tr("enviado") : a.estado === "erro" ? a.erro ?? tr("erro") : a.estado === "enviando" ? tr("enviando…") : tr("pronto")}
                     </span>
                     {!enviando && a.estado !== "enviado" && (
-                      <button type="button" onClick={() => setArquivos((x) => x.filter((y) => y.id !== a.id))} className="text-zinc-500 hover:text-white" title="Tirar">
+                      <button type="button" onClick={() => setArquivos((x) => x.filter((y) => y.id !== a.id))} className="text-zinc-500 hover:text-white" title={tr("Tirar")}>
                         ×
                       </button>
                     )}
@@ -650,10 +654,10 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
             )}
           </Panel>
 
-          <Panel eyebrow="Observações" title="Algo que o laboratório precisa saber?">
+          <Panel eyebrow={tr("Observações")} title={tr("Algo que o laboratório precisa saber?")}>
             <textarea
               className="gc-input min-h-[110px]"
-              placeholder="Detalhes do caso, preferências, contato da clínica…"
+              placeholder={tr("Detalhes do caso, preferências, contato da clínica…")}
               value={observacoes}
               onChange={(e) => setObservacoes(e.target.value)}
               disabled={enviando}
@@ -662,39 +666,39 @@ export default function FormularioOS({ dentista, nomeTabela, modo, token = "", p
         </div>
 
         <div className="flex flex-col gap-6 xl:sticky xl:top-8 xl:self-start">
-          <Panel eyebrow="Resumo" title="Valor estimado">
+          <Panel eyebrow={tr("Resumo")} title={tr("Valor estimado")}>
             {grupos.length === 0 ? (
-              <p className="text-sm text-zinc-400">Marque os trabalhos no odontograma para ver o valor.</p>
+              <p className="text-sm text-zinc-400">{tr("Marque os trabalhos no odontograma para ver o valor.")}</p>
             ) : (
               <div className="flex flex-col gap-3">
                 {orc.itens.map((i) => (
                   <div key={i.chave} className="flex items-start gap-3">
                     <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full border ${COR_CATEGORIA[i.caminho[0]] ?? ""}`} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-white">{i.chave}</p>
+                      <p className="text-sm font-semibold text-white">{ts(i.caminho)}</p>
                       <p className="text-xs text-zinc-400">
-                        {i.quantidade} {nomeUnidade(i.unidade, i.quantidade)}
+                        {i.quantidade} {tr(nomeUnidade(i.unidade, i.quantidade))}
                         {i.unitario !== null && ` × ${brl(i.unitario)}`}
                       </p>
                     </div>
-                    <span className="text-sm font-semibold text-white">{i.unitario === null ? "a combinar" : brl(i.total)}</span>
+                    <span className="text-sm font-semibold text-white">{i.unitario === null ? tr("a combinar") : brl(i.total)}</span>
                   </div>
                 ))}
               </div>
             )}
             <div className="mt-5 flex items-end justify-between border-t border-white/5 pt-4">
-              <span className="text-sm text-zinc-400">Total estimado</span>
+              <span className="text-sm text-zinc-400">{tr("Total estimado")}</span>
               <span className="text-3xl font-bold text-white">{temPrecos ? brl(orc.total) : "—"}</span>
             </div>
             <p className="mt-2 text-xs text-zinc-500">
               {temPrecos
-                ? `Valores da ${lab ? "tabela do dentista" : "sua tabela"}${nomeTabela ? ` (${nomeTabela})` : ""}. ${orc.semPreco ? "Itens “a combinar” o laboratório confirma depois. " : ""}O valor final pode mudar se houver ajuste no caso.`
-                : "O laboratório ainda não ligou uma tabela de preço à sua conta — o valor é confirmado depois do envio."}
+                ? `${tr(lab ? "Valores da tabela do dentista" : "Valores da sua tabela")}${nomeTabela ? ` (${nomeTabela})` : ""}. ${orc.semPreco ? tr("Itens “a combinar” o laboratório confirma depois.") + " " : ""}${tr("O valor final pode mudar se houver ajuste no caso.")}`
+                : tr("O laboratório ainda não ligou uma tabela de preço à sua conta — o valor é confirmado depois do envio.")}
             </p>
             {erro && <p className="mt-4 rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{erro}</p>}
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <Botao type="submit" disabled={enviando}>{enviando ? (editando ? "Salvando…" : "Enviando…") : editando ? "Salvar alterações" : lab ? "Lançar ordem de serviço" : "Enviar ordem de serviço"}</Botao>
-              <Link href={edicao ? `/pedido/${edicao.pedidoId}` : lab ? "/dashboard" : "/portal"} className="text-sm text-zinc-400 hover:text-white">Cancelar</Link>
+              <Botao type="submit" disabled={enviando}>{enviando ? (editando ? "Salvando…" : tr("Enviando…")) : editando ? "Salvar alterações" : lab ? "Lançar ordem de serviço" : tr("Enviar ordem de serviço")}</Botao>
+              <Link href={edicao ? `/pedido/${edicao.pedidoId}` : lab ? "/dashboard" : "/portal"} className="text-sm text-zinc-400 hover:text-white">{tr("Cancelar")}</Link>
             </div>
           </Panel>
         </div>
