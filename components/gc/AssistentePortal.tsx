@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useDentista } from "@/components/gc/PortalShell";
 import MascoteGC, { type HumorMascote } from "@/components/gc/MascoteGC";
+import { useT } from "@/lib/i18n";
+import type { Idioma } from "@/lib/idiomaEntrada";
+
+const LINGUA: Record<Idioma, string> = { pt: "pt-BR", es: "es-ES", en: "en-US" };
 
 // Assistente do portal do dentista: fica na barra lateral (no celular, num botão
 // flutuante). O dentista toca no microfone e pede para achar um paciente/caso ou
@@ -32,34 +36,40 @@ interface Resposta {
 
 const SUGESTOES = ["O que está aguardando minha aprovação?", "Qual o espaço oclusal mínimo para coroa de zircônia?"];
 
-function criarReconhecedor() {
+function criarReconhecedor(lingua = "pt-BR") {
   if (typeof window === "undefined") return null;
   const R = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
   if (!R) return null;
   const r = new R();
-  r.lang = "pt-BR";
+  r.lang = lingua;
   r.interimResults = true;
   r.continuous = false;
   r.maxAlternatives = 1;
   return r;
 }
 
-function escolherVoz(todas: SpeechSynthesisVoice[]) {
-  const br = todas.filter((v) => /pt[-_]br/i.test(v.lang));
-  return br.find((v) => /natural|neural|online/i.test(v.name)) || br.find((v) => /google/i.test(v.name)) || br[0] || todas.find((v) => v.lang?.toLowerCase().startsWith("pt"));
+function escolherVoz(todas: SpeechSynthesisVoice[], idioma: Idioma = "pt") {
+  const base = idioma === "pt" ? /pt[-_]br/i : idioma === "es" ? /^es/i : /^en/i;
+  const br = todas.filter((v) => base.test(v.lang));
+  return br.find((v) => /natural|neural|online/i.test(v.name)) || br.find((v) => /google/i.test(v.name)) || br[0] || todas.find((v) => v.lang?.toLowerCase().startsWith(idioma));
 }
 
 export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuante" }) {
   const router = useRouter();
   const caminho = usePathname();
   const { sessao, dentista } = useDentista();
+  const { idioma, tr } = useT();
   const token = sessao.access_token;
   const primeiroNome = (dentista.nome || "").split(" ").filter((p) => !/^dra?\.?$/i.test(p))[0] || "";
   const [aberto, setAberto] = useState(false);
   // na barra lateral o balão só aparece durante a conversa e some sozinho depois
   const [balaoVisivel, setBalaoVisivel] = useState(false);
   const [status, setStatus] = useState<Status>("parado");
-  const [balao, setBalao] = useState(primeiroNome ? `Oi, ${primeiroNome}! Toque no microfone e me peça um paciente ou tire uma dúvida técnica.` : "Oi! Toque no microfone e me peça um paciente ou tire uma dúvida técnica.");
+  const saudacao = () =>
+    primeiroNome
+      ? tr("Oi, {nome}! Toque no microfone e me peça um paciente ou tire uma dúvida técnica.", { nome: primeiroNome })
+      : tr("Oi! Toque no microfone e me peça um paciente ou tire uma dúvida técnica.");
+  const [balao, setBalao] = useState(saudacao);
   const [detalhe, setDetalhe] = useState("");
   const [parcial, setParcial] = useState("");
   const [texto, setTexto] = useState("");
@@ -72,6 +82,12 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
   const premium = useRef(false);
   const velocidade = useRef(1);
   const vivo = useRef(true);
+
+  // Trocou o idioma antes de conversar: a saudação acompanha.
+  useEffect(() => {
+    if (!historico.current.length) setBalao(saudacao());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idioma]);
 
   useEffect(() => {
     vivo.current = true;
@@ -112,7 +128,8 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
       }
       setStatus("falando");
       const fim = () => vivo.current && setStatus("parado");
-      if (premium.current) {
+      // A voz premium é a voz do laboratório em português; nos outros idiomas usa a do aparelho.
+      if (premium.current && idioma === "pt") {
         try {
           const r = await fetch("/api/voz/falar", {
             method: "POST",
@@ -137,15 +154,15 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
       if (!sintese) return fim();
       sintese.cancel();
       const u = new SpeechSynthesisUtterance(frase);
-      u.lang = "pt-BR";
-      const v = escolherVoz(sintese.getVoices());
+      u.lang = LINGUA[idioma];
+      const v = escolherVoz(sintese.getVoices(), idioma);
       if (v) u.voice = v;
       u.rate = velocidade.current;
       u.onend = u.onerror = fim;
       sintese.speak(u);
       setTimeout(fim, 4000 + frase.length * 110);
     },
-    [mudo, token]
+    [mudo, token, idioma]
   );
 
   async function perguntar(fala: string) {
@@ -159,19 +176,19 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
       const r = await fetch("/api/voz/consulta", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ fala, historico: historico.current.slice(-6) }),
+        body: JSON.stringify({ fala, historico: historico.current.slice(-6), idioma }),
       });
-      j = await r.json().catch(() => ({ ok: false, erro: "Resposta inválida." }));
+      j = await r.json().catch(() => ({ ok: false, erro: tr("Resposta inválida.") }));
     } catch {
-      j = { ok: false, erro: "Falhou a conexão. Tente de novo." };
+      j = { ok: false, erro: tr("Falhou a conexão. Tente de novo.") };
     }
     if (!vivo.current) return;
     if (!j.ok) {
-      setBalao(j.erro || "Não consegui responder agora.");
+      setBalao(j.erro ? tr(j.erro) : tr("Não consegui responder agora."));
       setStatus("parado");
       return;
     }
-    const resposta = j.fala || "Pronto.";
+    const resposta = j.fala || tr("Pronto.");
     historico.current.push({ de: "assistente", texto: resposta });
     setBalao(resposta);
     setDetalhe(j.texto && j.texto !== resposta ? j.texto : "");
@@ -201,7 +218,7 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
     }
     audio.current?.pause();
     window.speechSynthesis?.cancel();
-    const r = criarReconhecedor();
+    const r = criarReconhecedor(LINGUA[idioma]);
     if (!r) {
       setSemMicrofone(true);
       return;
@@ -223,11 +240,11 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
       if (ouvido.trim()) perguntar(ouvido.trim());
       else {
         setStatus("parado");
-        setBalao("Não ouvi nada. Toque no microfone e fale de novo.");
+        setBalao(tr("Não ouvi nada. Toque no microfone e fale de novo."));
       }
     };
     setBalaoVisivel(true);
-    setBalao("Pode falar, estou ouvindo…");
+    setBalao(tr("Pode falar, estou ouvindo…"));
     setDetalhe("");
     setStatus("ouvindo");
     try {
@@ -262,7 +279,7 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
       onClick={ouvir}
       disabled={status === "pensando" || semMicrofone}
       className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg transition disabled:opacity-40 ${corBotao}`}
-      aria-label={status === "ouvindo" ? "Parar de ouvir" : "Falar com o assistente"}
+      aria-label={tr(status === "ouvindo" ? "Parar de ouvir" : "Falar com o assistente")}
     >
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <rect x="9" y="3" width="6" height="11" rx="3" />
@@ -271,15 +288,17 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
     </button>
   );
 
-  const rotulo = semMicrofone
-    ? "Microfone indisponível aqui. Digite abaixo."
-    : status === "ouvindo"
-      ? "Ouvindo… toque para terminar."
-      : status === "pensando"
-        ? "Procurando a resposta…"
-        : status === "falando"
-          ? "Respondendo…"
-          : "Toque para falar";
+  const rotulo = tr(
+    semMicrofone
+      ? "Microfone indisponível aqui. Digite abaixo."
+      : status === "ouvindo"
+        ? "Ouvindo… toque para terminar."
+        : status === "pensando"
+          ? "Procurando a resposta…"
+          : status === "falando"
+            ? "Respondendo…"
+            : "Toque para falar"
+  );
 
   const conversa = (
     <div className="flex flex-col gap-3">
@@ -290,29 +309,29 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
       <div className="flex items-center gap-3">
         {microfone}
         <p className="min-w-0 flex-1 text-xs leading-snug text-zinc-400">{rotulo}</p>
-        <button type="button" onClick={() => setMudo((m) => !m)} className="text-xs text-zinc-500 underline-offset-4 hover:text-white hover:underline" title="Ligar/desligar a voz do assistente">
-          {mudo ? "Som off" : "Som on"}
+        <button type="button" onClick={() => setMudo((m) => !m)} className="text-xs text-zinc-500 underline-offset-4 hover:text-white hover:underline" title={tr("Ligar/desligar a voz do assistente")}>
+          {tr(mudo ? "Som off" : "Som on")}
         </button>
       </div>
       <form onSubmit={enviarTexto} className="flex gap-2">
         <label htmlFor={`pergunta-${modo}`} className="sr-only">
-          Pergunta para o assistente
+          {tr("Pergunta para o assistente")}
         </label>
-        <input id={`pergunta-${modo}`} className="gc-input min-w-0 flex-1 !py-2 text-sm" placeholder="Paciente ou dúvida técnica…" value={texto} onChange={(e) => setTexto(e.target.value)} />
-        <button type="submit" className="gc-btn gc-btn-secundario !px-3 !py-2 text-sm" disabled={!texto.trim() || status === "pensando"} aria-label="Perguntar">
+        <input id={`pergunta-${modo}`} className="gc-input min-w-0 flex-1 !py-2 text-sm" placeholder={tr("Paciente ou dúvida técnica…")} value={texto} onChange={(e) => setTexto(e.target.value)} />
+        <button type="submit" className="gc-btn gc-btn-secundario !px-3 !py-2 text-sm" disabled={!texto.trim() || status === "pensando"} aria-label={tr("Perguntar")}>
           OK
         </button>
       </form>
       {!historico.current.length && (
         <div className="flex flex-col gap-1.5">
-          {SUGESTOES.map((s) => (
+          {SUGESTOES.map((s0) => tr(s0)).map((s) => (
             <button key={s} type="button" onClick={() => status !== "pensando" && perguntar(s)} className="rounded-xl bg-white/[0.04] px-3 py-2 text-left text-xs text-zinc-300 hover:bg-white/[0.08] hover:text-white">
               {s}
             </button>
           ))}
         </div>
       )}
-      <p className="text-[11px] leading-snug text-zinc-500">Respostas técnicas são orientações gerais e não substituem a avaliação clínica.</p>
+      <p className="text-[11px] leading-snug text-zinc-500">{tr("Respostas técnicas são orientações gerais e não substituem a avaliação clínica.")}</p>
     </div>
   );
 
@@ -332,15 +351,15 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
             {detalhe && (
               <>
                 <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-line rounded-2xl bg-white/[0.04] px-3.5 py-2.5 text-[13px] leading-relaxed text-zinc-300">{detalhe}</p>
-                <p className="mt-1.5 text-[11px] leading-snug text-zinc-500">Orientação geral; não substitui a avaliação clínica.</p>
+                <p className="mt-1.5 text-[11px] leading-snug text-zinc-500">{tr("Orientação geral; não substitui a avaliação clínica.")}</p>
               </>
             )}
-            <button type="button" onClick={() => setBalaoVisivel(false)} className="absolute right-2 top-1.5 text-lg leading-none text-zinc-500 hover:text-white" aria-label="Fechar resposta">
+            <button type="button" onClick={() => setBalaoVisivel(false)} className="absolute right-2 top-1.5 text-lg leading-none text-zinc-500 hover:text-white" aria-label={tr("Fechar resposta")}>
               ×
             </button>
           </div>
         )}
-        {semMicrofone && <p className="text-center text-xs text-zinc-500">Microfone indisponível neste navegador.</p>}
+        {semMicrofone && <p className="text-center text-xs text-zinc-500">{tr("Microfone indisponível neste navegador.")}</p>}
       </section>
     );
   }
@@ -352,8 +371,8 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
         <section className="gc-card w-[min(22rem,calc(100vw-2rem))] p-4" aria-label="Assistente GC">
           <div className="mb-3 flex items-center gap-3">
             <MascoteGC humor={humor} tamanho={64} seguirMouse={false} className="rounded-xl bg-white/[0.05]" />
-            <p className="gc-eyebrow flex-1">Assistente GC</p>
-            <button type="button" onClick={() => setAberto(false)} className="text-2xl leading-none text-zinc-400 hover:text-white" aria-label="Fechar assistente">
+            <p className="gc-eyebrow flex-1">{tr("Assistente GC")}</p>
+            <button type="button" onClick={() => setAberto(false)} className="text-2xl leading-none text-zinc-400 hover:text-white" aria-label={tr("Fechar assistente")}>
               ×
             </button>
           </div>
@@ -361,7 +380,7 @@ export default function AssistentePortal({ modo }: { modo: "lateral" | "flutuant
         </section>
       )}
       {!aberto && (
-        <button type="button" onClick={() => setAberto(true)} className="rounded-2xl border border-white/10 bg-black/80 p-1 shadow-xl backdrop-blur" aria-label="Abrir o assistente GC">
+        <button type="button" onClick={() => setAberto(true)} className="rounded-2xl border border-white/10 bg-black/80 p-1 shadow-xl backdrop-blur" aria-label={tr("Abrir o assistente GC")}>
           <MascoteGC humor={humor} tamanho={64} seguirMouse={false} />
         </button>
       )}
