@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/i18n";
+
 import { useEffect, useState } from "react";
 
 // Registra o service worker e mostra o botão "Instalar app" quando o navegador permite.
@@ -11,6 +13,7 @@ interface EventoInstalar extends Event {
 }
 
 export default function InstalarApp({ compacto }: { compacto?: boolean }) {
+  const { tr } = useT();
   const [evento, setEvento] = useState<EventoInstalar | null>(null);
   const [instalado, setInstalado] = useState(true);
   const [ios, setIos] = useState(false);
@@ -61,23 +64,23 @@ export default function InstalarApp({ compacto }: { compacto?: boolean }) {
         className={`flex items-center gap-2 rounded-xl bg-white/10 font-semibold text-white hover:bg-white/15 ${compacto ? "px-3 py-2 text-sm" : "w-full justify-center px-3 py-2.5 text-sm"}`}
       >
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
-        Instalar app
+        {tr("Instalar app")}
       </button>
       {ajuda && !ios && (
         <div className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-md rounded-2xl border border-white/10 bg-[#121214] p-4 text-sm text-zinc-200 shadow-2xl" onClick={() => setAjuda(false)}>
-          <p className="font-semibold text-white">Instalar o app</p>
+          <p className="font-semibold text-white">{tr("Instalar o app")}</p>
           <p className="mt-1">
-            <strong>Chrome / Edge no computador:</strong> clique no ícone de instalar na barra de endereço (monitor com seta, ao lado da estrela) ou no menu <strong>⋮</strong> → <strong>Transmitir, salvar e compartilhar</strong> → <strong>Instalar página como app</strong>.
+            <strong>{tr("Chrome / Edge no computador:")}</strong> {tr("clique no ícone de instalar na barra de endereço (monitor com seta, ao lado da estrela) ou no menu")} <strong>⋮</strong> → <strong>{tr("Transmitir, salvar e compartilhar")}</strong> → <strong>{tr("Instalar página como app")}</strong>.
           </p>
-          <p className="mt-2"><strong>Celular Android:</strong> menu <strong>⋮</strong> → <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong>.</p>
-          <p className="mt-2 text-xs text-zinc-500">Clique aqui para fechar.</p>
+          <p className="mt-2"><strong>{tr("Celular Android:")}</strong> {tr("menu")} <strong>⋮</strong> → <strong>{tr("Instalar app")}</strong> {tr("ou")} <strong>{tr("Adicionar à tela inicial")}</strong>.</p>
+          <p className="mt-2 text-xs text-zinc-500">{tr("Clique aqui para fechar.")}</p>
         </div>
       )}
       {ajuda && ios && (
         <div className="fixed inset-x-3 bottom-3 z-50 rounded-2xl border border-white/10 bg-[#121214] p-4 text-sm text-zinc-200 shadow-2xl" onClick={() => setAjuda(false)}>
-          <p className="font-semibold text-white">Instalar no iPhone / iPad</p>
-          <p className="mt-1">No Safari, toque em <strong>Compartilhar</strong> (quadrado com seta para cima) e depois em <strong>“Adicionar à Tela de Início”</strong>.</p>
-          <p className="mt-2 text-xs text-zinc-500">Toque aqui para fechar.</p>
+          <p className="font-semibold text-white">{tr("Instalar no iPhone / iPad")}</p>
+          <p className="mt-1">{tr("No Safari, toque em")} <strong>{tr("Compartilhar")}</strong> {tr("(quadrado com seta para cima) e depois em")} <strong>“{tr("Adicionar à Tela de Início")}”</strong>.</p>
+          <p className="mt-2 text-xs text-zinc-500">{tr("Toque aqui para fechar.")}</p>
         </div>
       )}
     </div>
