@@ -71,6 +71,14 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const fala = typeof body?.fala === "string" ? body.fala.trim().slice(0, 1500) : "";
   if (!fala) return NextResponse.json({ ok: false, erro: "requisição inválida" }, { status: 400 });
+  // Idioma escolhido no portal: a resposta (fala, texto e rótulo) vem nesse idioma.
+  const idioma = body?.idioma === "es" ? "es" : body?.idioma === "en" ? "en" : "pt";
+  const instrucaoIdioma =
+    idioma === "es"
+      ? "IDIOMA: o dentista usa o portal em ESPANHOL. Escreva \"fala\", \"texto\" e \"rotulo\" em espanhol (neutro), com a terminologia odontológica usual em espanhol."
+      : idioma === "en"
+        ? "IDIOMA: o dentista usa o portal em INGLÊS. Escreva \"fala\", \"texto\" e \"rotulo\" em inglês, com a terminologia odontológica usual em inglês."
+        : "";
   const historico: { de: string; texto: string }[] = Array.isArray(body?.historico)
     ? body.historico
         .slice(-6)
@@ -110,7 +118,10 @@ O DENTISTA DISSE: """${fala}"""`;
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || "claude-haiku-5-5",
         max_tokens: 900,
-        system: [{ type: "text", text: SISTEMA, cache_control: { type: "ephemeral" } }],
+        system: [
+          { type: "text", text: SISTEMA, cache_control: { type: "ephemeral" } },
+          ...(instrucaoIdioma ? [{ type: "text", text: instrucaoIdioma }] : []),
+        ],
         messages: [{ role: "user", content: conteudo }],
       }),
     });
