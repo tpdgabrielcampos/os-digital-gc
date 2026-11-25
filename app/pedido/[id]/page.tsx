@@ -5,6 +5,7 @@ import { Pedido, STATUS_LABEL } from "@/lib/types";
 import AdminShell from "@/components/gc/AdminShell";
 import { PageHeader, Panel } from "@/components/gc/ui";
 import PainelControle from "@/components/PainelControle";
+import BaixarTodos from "@/components/gc/BaixarTodos";
 import { PONTO_STATUS, brl, dataBR, dataHoraBR, numeroOS, tamanhoLegivel, type PedidoArquivo } from "@/lib/gc";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,8 @@ export default async function PedidoDetalhePage({ params, searchParams }: { para
   );
 
   const trabalhos = pedido.tipo_trabalho.split(" + ");
+  const paraZip = arquivos.filter((a): a is typeof a & { link: string } => !!a.link).map((a) => ({ nome: a.nome, link: a.link }));
+  const nomeZip = `${numeroOS(pedido.numero)} - ${pedido.paciente_nome}`.replace(/[\\/:*?"<>|]+/g, " ").trim() + ".zip";
 
   return (
     <AdminShell ativo="/dashboard/ordens">
@@ -100,6 +103,7 @@ export default async function PedidoDetalhePage({ params, searchParams }: { para
               </p>
             ) : (
               <div className="flex flex-col gap-2">
+                {paraZip.length > 1 && <BaixarTodos arquivos={paraZip} nomeZip={nomeZip} />}
                 {arquivos.map((a) => (
                   <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-2.5">
                     <span className="min-w-0 flex-1 truncate text-sm text-white">{a.nome}</span>
